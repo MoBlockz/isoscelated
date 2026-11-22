@@ -292,8 +292,14 @@ const World = {};
     for (let role = 0; role < 10; role++) {
       const r = m.rooms[role];
       if (role === 5) { // meeting hall: centrepiece, table + bell, compass, plants
-        const bx = r.x + Math.floor((r.w - 14) / 2); prop(m, 'blimp', bx, r.y, 14, 3); block(bx, r.y, 14, 3);
-        const tx = r.x + Math.floor(r.w / 2) - 2, ty = r.y + Math.floor(r.h / 2); prop(m, 'table', tx, ty, 4, 3); block(tx - 4, ty - 3, 12, 9); station(m, 'bell', tx + 2, ty + 3.5);
+        // centrepiece: top wall if it doesn't cover a doorway, otherwise the bottom wall, otherwise left out
+        let cp = null; const order = []; for (let d = 0; d <= r.w - 14; d++) { const x1 = r.x + Math.floor((r.w - 14) / 2) + (d % 2 ? (d + 1) / 2 : -d / 2); if (x1 >= r.x && x1 + 14 <= r.x + r.w) order.push(x1); }
+        for (const yy of [r.y, r.y + r.h - 3]) { for (const x1 of order) if (free(x1, yy, 14, 3, r) && free(x1, yy === r.y ? yy + 3 : yy - 1, 14, 1, r)) { cp = [x1, yy]; break; } if (cp) break; }
+        if (cp) { prop(m, 'blimp', cp[0], cp[1], 14, 3); block(cp[0], cp[1], 14, 3); }
+        let tx = r.x + Math.floor(r.w / 2) - 2, ty = r.y + Math.floor(r.h / 2);
+        if (cp && cp[1] !== r.y) ty = r.y + Math.floor(r.h / 2) - 3; // centrepiece at the bottom: table a bit higher
+        for (const [ox, oy] of [[0, 0], [0, -1], [0, 1], [-2, 0], [2, 0], [0, -2], [0, 2]]) if (free(tx + ox - 1, ty + oy - 1, 6, 6, r)) { tx += ox; ty += oy; break; }
+        prop(m, 'table', tx, ty, 4, 3); block(tx - 4, ty - 3, 12, 9); station(m, 'bell', tx + 2, ty + 3.5);
         place(r, ['compass', 1, 'task', 'compass']); place(r, ['plant', 1]); place(r, ['plant', 1]);
         const cx = (tx + 2) * T, cy = (ty + 1.5) * T; m.spawn = [cx, cy + 50];
         for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; m.seats.push([Math.round(cx + Math.cos(a) * 66), Math.round(cy + Math.sin(a) * 50)]); }
