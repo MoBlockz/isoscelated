@@ -469,7 +469,10 @@ const Game = {};
       const S = C.settings, okHex = Server.hexValid(S.hexCount, n), can = n >= 4 && okHex;
       UI.button(bx, by, bw, 22, 'START', () => { const err = Server.start_game(); if (err) UI.say(err); }, { nav: false, col: can ? P.yellow : P.grey, disabled: !can, onDisabled: () => UI.say(n < 4 ? 'You need at least 4 players to start. Share the code!' : 'Too many Hexagoners for this many players. Change it in SETTINGS.') }); by += 26;
       if (!can) G.text(n < 4 ? 'Need 4+' : 'Too many HEX', bx + bw / 2, by, P.yellow, { al: 'c', ol: P.ink });
-      if (new URLSearchParams(location.search).get('bots')) { smallBtn(bx, by + 12, '+BOT', () => Server.addBot()); }
+      const bots = C.roster.filter(e => e.bot).length;
+      UI.button(bx, by + 10, 40, 16, '+AI', () => Server.addBot(), { nav: false, col: '#cfe0ff', disabled: n >= 20 });
+      UI.button(bx + 44, by + 10, 40, 16, '-AI', () => Server.removeBot(), { nav: false, col: '#cfe0ff', disabled: !bots });
+      G.tiny(bots + ' AI PLAYER' + (bots === 1 ? '' : 'S'), bx + bw / 2, by + 29, P.white, 'c');
     } else G.text('Waiting for host', bx + bw / 2, by + 2, P.white, { al: 'c', ol: P.ink });
     // chat
     const cwid = Math.min(G.W - bw - 30 - (UI.isTouch ? 0 : 0), 300), ch = 56;
@@ -597,7 +600,7 @@ const Game = {};
       G.text(e.name.slice(0, Math.floor((w - 32) / 8)), cx + 30, cy + 5, dead ? P.dark : P.ink);
       if (e.hex) G.tiny('HEX' + (e.type ? ' ' + TYPE_NAME[e.type] : ''), cx + 30, cy + 15, P.dred);
       if (dead) { G.tiny(e.left ? 'LEFT' : 'PIECE', cx + 30, cy + h - 9, P.dark); G.rect(cx + 4, cy + h / 2, 22, 2, P.red); }
-      if (C.muted.has(e.id)) G.tiny('MUTED', cx + w - 26, cy + 4, P.red);
+      if (C.muted.has(e.id)) G.tiny('MUTED', cx + w - 26, cy + 4, P.red); else if (e.bot) G.tiny('AI', cx + w - 12, cy + 4, P.blue);
       if (M.st === 'vote' && e.voted) { G.rect(cx + w - 30, cy + h - 12, 28, 10, P.yellow); G.tiny('VOTED', cx + w - 27, cy + h - 10, P.ink); }
       if (M.st === 'result' && C.eject && C.eject.counts) { const n = C.eject.counts[e.id] || 0; if (n) { G.rect(cx + w - 18, cy + 3, 16, 12, P.red); G.text(String(n), cx + w - 14, cy + 5, P.white); } }
       if (M.myVote === e.id) G.text('✔', cx + w - 11, cy + h - 11, P.green);
@@ -815,7 +818,7 @@ const Game = {};
     const b = panel(cols * 120 + 16, Math.min(G.H, rows * 22 + 40), 'PLAYERS ' + list.length + '/20');
     list.forEach((e, i) => {
       const x = b.x + 8 + (i % cols) * 120, y = b.y + 24 + Math.floor(i / cols) * 22;
-      UI.button(x, y, 116, 20, '', () => { C.card = e.id; C.overlay = 'card'; }, { icon: (bx, by) => { miniFace(e.look, bx + 4, by + 7); G.text(e.name, bx + 16, by + 6, e.id === C.id ? P.dblue : P.ink); if (e.host) G.tiny('HOST', bx + 100, by + 3, P.orange); else if (e.ready) G.text('✔', bx + 104, by + 6, P.green); if (C.muted.has(e.id)) G.tiny('MUTE', bx + 98, by + 12, P.red); } });
+      UI.button(x, y, 116, 20, '', () => { C.card = e.id; C.overlay = 'card'; }, { icon: (bx, by) => { miniFace(e.look, bx + 4, by + 7); G.text(e.name, bx + 16, by + 6, e.id === C.id ? P.dblue : P.ink); if (e.host) G.tiny('HOST', bx + 100, by + 3, P.orange); else if (e.bot) G.tiny('AI', bx + 104, by + 3, P.blue); else if (e.ready) G.text('✔', bx + 104, by + 6, P.green); if (C.muted.has(e.id)) G.tiny('MUTE', bx + 98, by + 12, P.red); } });
     });
   }
   function drawCard() {

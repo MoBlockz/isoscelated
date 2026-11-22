@@ -92,7 +92,11 @@ const Server = {};
     let n = 0; while (clash() && n++ < 18) p.look.color = (p.look.color + 1) % 18;
   }
   const BOT_NAMES = ['DUMMY', 'BLOCKY', 'ROLLO', 'POINTY', 'WOBBLE', 'TWIRL', 'BOING', 'CUBY', 'ZIGGY', 'PIP', 'NUBBS', 'TOOT', 'SQUISH', 'DOTTY', 'BEEP', 'KNOB', 'MOCHI', 'TINK', 'BOLT'];
-  function addBot() { const id = 'b' + (st.nextId++); const p = addPlayer(id, BOT_NAMES[(st.nextId) % BOT_NAMES.length], G.randomLook(), 'bot' + id, null); p.bot = true; p.ready = true; return p; }
+  function addBot(ai) {
+    const id = 'b' + (st.nextId++), used = new Set([...st.players.values()].map(q => q.name));
+    const name = BOT_NAMES.find(n => !used.has(n)) || ('AI ' + st.nextId);
+    const p = addPlayer(id, name, G.randomLook(), 'bot' + id, null); p.bot = true; p.ai = ai !== false && !st.practice; p.ready = true; return p;
+  }
   function addPlayer(id, name, look, token, conn) {
     const sp = st.map.seats[st.players.size % st.map.seats.length];
     const p = {
@@ -122,7 +126,8 @@ const Server = {};
     if (p.conn) { try { p.conn.send({ t: 'err', m: 'The host removed you from the lobby.' }); } catch (e) { } setTimeout(() => { try { p.conn && p.conn.close(); } catch (e) { } }, 300); }
     dropPlayer(id); notice('h', p.name + ' was kicked.');
   };
-  Server.addBot = () => { if (st && st.phase === 'lobby' && st.players.size < 20) addBot(); };
+  Server.addBot = () => { if (st && st.phase === 'lobby' && st.players.size < 20) { const p = addBot(true); notice(null, p.name + ' (AI) joined.'); } };
+  Server.removeBot = () => { if (!st || st.phase !== 'lobby') return; const b = [...st.players.values()].filter(p => p.bot).pop(); if (!b) return; st.players.delete(b.id); st.order = st.order.filter(x => x !== b.id); if (!st.hexManual) st.settings.hexCount = Server.suggestHex(st.players.size); st.rosterDirty = true; notice(null, b.name + ' (AI) left.'); };
   Server.setSetting = function (k, v) {
     if (!st || st.phase !== 'lobby') return; if (k === 'hexCount') st.hexManual = true;
     if (k === 'allowed') st.settings.allowed = Object.assign({}, st.settings.allowed, v); else st.settings[k] = v; st.rosterDirty = true;
@@ -171,6 +176,7 @@ const Server = {};
       p.alive = true; p.left = false; p.knownDead = false; p.role = hexIds.has(p.id) ? 'hex' : 'shape';
       p.type = p.role === 'hex' ? pool[Math.floor(Math.random() * pool.length)] : null;
       p.hexCd = 15; p.plantCd = 15; p.shiftCd = 15; p.shiftT = 0; p.shiftAs = null; p.bells = S.bells; p.rattled = false; p.vote = null; p.camOn = false; p.hold = -1;
+      p.suspect = null; p.sawAt = 0; p.goal = null; p.aiBtn = null; p.aiSaid = 0;
       p.stats = z(); p.muteMatch = p.strikes >= 6 ? p.muteMatch : false; p.ready = false;
       const keys = World.TASK_KEYS.slice().sort(() => Math.random() - .5).slice(0, Math.min(S.tasks, World.TASK_KEYS.length));
       p.tasks = keys.map(k => ({ k, done: false }));
@@ -300,6 +306,7 @@ const Server = {};
     st.bodies.push({ id: v.id, obj, later: 1 + Math.floor(Math.random() * 5), age: 0, x: Math.round(v.x), y: Math.round(v.y), rep: !!reportable });
     // marks on the victim fade, marks by the victim vanish
     st.marks = st.marks.filter(k => { if (k.target === v.id) { const pl = st.players.get(k.by); if (pl) pl.plantCd = st.settings.plantCd; return false; } return k.by !== v.id; });
+    if (from) for (const q of st.players.values()) if (q.ai && q.alive && q !== v && q.role === 'shape' && canSee(q, from.x, from.y, 0)) { q.suspect = from.shiftAs || from.id; q.sawAt = st.t; }
     if (from) sendAll({ t: 'e', k: 'zap', x: from.x, y: from.y, x2: v.x, y2: v.y, id: v.id, obj }, q => q === v || canSee(q, v.x, v.y) || canSee(q, from.x, from.y));
     else sendAll({ t: 'e', k: 'poof', x: v.x, y: v.y, id: v.id, obj }, q => canSee(q, v.x, v.y));
     if (reportable) send(v.id, { t: 'e', k: 'hexed', obj, by: byId === v.id ? null : 1 });
@@ -310,7 +317,8 @@ const Server = {};
   function startMeeting(caller, reason, body) {
     const owner = body ? st.players.get(body.id) : null;
     st.phase = 'meeting'; st.meeting = { stage: 'intro', t: 3, caller: caller.id, reason, body: owner ? owner.id : null, bodyObj: body ? body.obj : null, result: null };
-    st.marks = []; st.sab = { k: null }; st.bodies = [];
+    st.marks = []; st.sab = { k: null }; st.bodies = []; st.accuse = {};
+    for (const q of st.players.values()) { q.aiSaid = 0; q.aiVoteAt = null; q.goal = null; q.aiTaskT = 0; }
     let i = 0;
     for (const p of st.players.values()) {
       if (p.shiftAs) { p.shiftAs = null; p.shiftT = 0; } p.vote = null; p.camOn = false; p.hold = -1;
@@ -426,6 +434,8 @@ const Server = {};
     p.lastChat = now; p.chatLog.push(e.e ? '(' + e.e + ')' : World.quickText(q, whoId && st.players.get(whoId).name)); if (p.chatLog.length > 5) p.chatLog.shift();
     const live = st.phase === 'play' || st.phase === 'meeting';
     const msg = { t: 'e', k: 'quick', from: p.id, q, who: whoId, ch: 'all' };
+    if (st.phase === 'meeting' && whoId && /It's|sus|Vote/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) + 1; }
+    if (st.phase === 'meeting' && whoId && /trust/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) - 1; }
     if (live && team && p.role === 'hex' && p.alive) { msg.ch = 'hex'; sendAll(msg, x => x.role === 'hex' && x.alive); return; } // Hexagoner team only
     if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive); return; } // Spirits only
     if (st.phase !== 'play') { sendAll(msg); return; }
@@ -464,11 +474,102 @@ const Server = {};
     if (!st.practice && st.phase === 'play' && p.alive && p.role === 'hex' && p.hexCd <= 0 && Math.random() < dt * 0.5) action(p, { a: 'hex' });
   }
 
+  // ---------- AI players (added by the host in the lobby) ----------
+  const QI = t => World.QUICK.findIndex(e => e.t === t);
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function goTo(p, x, y, dt) { // walk (or float, for Spirits) towards a point. true = arrived
+    const m = st.map, sp = 66 * st.settings.speed * dt;
+    if (Math.hypot(p.x - x, p.y - y) < 8) { p.mv = 0; return true; }
+    let tx2, ty2;
+    if (!p.alive) { tx2 = x; ty2 = y; }
+    else {
+      const fl = flowTo(Math.floor(x / T), Math.floor(y / T)), tx = Math.floor(p.x / T), ty = Math.floor((p.y - 2) / T), here = fl[ty * m.w + tx];
+      if (here <= 1) { tx2 = x; ty2 = y; }
+      else { let best = null, bv = here; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const v = fl[(ty + dy) * m.w + tx + dx]; if (v >= 0 && v < bv) { bv = v; best = [dx, dy]; } } if (!best) { p.goal = null; return false; } tx2 = (tx + best[0]) * T + 8; ty2 = (ty + best[1]) * T + 10; }
+    }
+    const dx = Math.sign(tx2 - p.x) * Math.min(sp, Math.abs(tx2 - p.x)), dy = Math.sign(ty2 - p.y) * Math.min(sp, Math.abs(ty2 - p.y));
+    const ox = p.x, oy = p.y; World.move(m, p, dx, dy, !p.alive, st.sab.k === 'jam' ? st.sab.room : null);
+    if (Math.abs(p.x - ox) + Math.abs(p.y - oy) < 0.01) { p.stuck = (p.stuck || 0) + dt; if (p.stuck > 1.5) { p.goal = null; p.stuck = 0; } } else p.stuck = 0;
+    p.mv = 1; p.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 2 : 3) : (dy < 0 ? 1 : 0);
+    return false;
+  }
+  const randomStation = () => { const ss = st.map.stations.filter(s => s.kind === 'task'); const s = pick(ss); return [s.x, s.y]; };
+  function aiTick(p, dt) {
+    if (st.phase === 'meeting') return aiMeeting(p, dt);
+    if (st.phase !== 'play') { p.mv = 0; return; }
+    const S = st.settings, hex = p.role === 'hex';
+    p.think = (p.think || 0) - dt;
+    if (p.alive && !hex) {
+      // 1) fix sabotage
+      if (st.sab.k === 'lights') { const s = st.map.stations.filter(s => s.kind === 'switch' && !st.sab.sw[s.sw]).sort((a, b) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(p.x - b.x, p.y - b.y))[0]; if (s) { if (goTo(p, s.x, s.y, dt)) action(p, { a: 'switch', sw: s.sw }); return; } }
+      if (st.sab.k === 'melt') {
+        if (p.aiBtn == null) { const n = [0, 0]; for (const q of st.players.values()) if (q !== p && q.aiBtn != null) n[q.aiBtn]++; p.aiBtn = n[0] <= n[1] ? 0 : 1; }
+        const s = st.map.stations.find(s => s.kind === 'melt' && s.btn === p.aiBtn); if (goTo(p, s.x, s.y, dt)) p.hold = s.btn; return;
+      } else p.aiBtn = null;
+      // 2) report a piece I can see
+      const vis = visionOf(p); const body = st.bodies.find(b => b.rep && Math.hypot(b.x - p.x, b.y - p.y) < vis);
+      if (body) { if (Math.hypot(body.x - p.x, body.y - p.y) < REPORT_RANGE - 4) { action(p, { a: 'report' }); return; } goTo(p, body.x, body.y, dt); return; }
+      // 3) saw a zap but nobody reported? ring the bell
+      if (p.suspect && p.bells > 0 && st.bellCd <= 0 && st.t - (p.sawAt || 0) > 12) { const b = st.map.stations.find(s => s.kind === 'bell'); if (Math.hypot(p.x - b.x, p.y - b.y) < 40) { action(p, { a: 'bell' }); return; } goTo(p, b.x, b.y - 8, dt); return; }
+    }
+    if (p.alive && hex) {
+      const vis = visionOf(p), shapes = alive().filter(q => q.role === 'shape');
+      // hex someone when nobody else is watching
+      // stalk a victim, and strike when nobody else is close enough to see
+      if (p.hexCd <= 0 && shapes.length) {
+        let prey = st.players.get(p.prey); if (!prey || !prey.alive || st.t - (p.preyT || 0) > 25) { prey = pick(shapes); p.prey = prey.id; p.preyT = st.t; }
+        const d = Math.hypot(prey.x - p.x, prey.y - p.y), watched = shapes.some(w => w !== prey && (Math.hypot(w.x - p.x, w.y - p.y) < 80 || Math.hypot(w.x - prey.x, w.y - prey.y) < 80));
+        if (!watched && d < HEX_RANGE - 4) { action(p, { a: 'hex' }); p.prey = null; p.goal = randomStation(); return; }
+        if (!watched || d > 60) { goTo(p, prey.x, prey.y, dt); return; } // follow at a distance while others are around
+      }
+      if (p.type === 'plant' && p.plantCd <= 0 && !st.marks.some(k => k.by === p.id)) { const near = shapes.find(q => Math.hypot(q.x - p.x, q.y - p.y) < HEX_RANGE); if (near && Math.random() < dt * 0.8) action(p, { a: 'plant' }); }
+      if (p.type === 'shift' && p.shiftCd <= 0 && p.shiftT <= 0 && Math.random() < dt * 0.05) { const others = alive().filter(q => q !== p); if (others.length) action(p, { a: 'shift', target: pick(others).id }); }
+      if (!st.sab.k && st.sabCd <= 0 && Math.random() < dt * 0.04) action(p, { a: 'sab', k: Math.random() < 0.15 ? 'melt' : Math.random() < 0.5 ? 'lights' : 'jam', room: Math.floor(Math.random() * st.map.rooms.length) });
+    }
+    // chores (Shapes, alive or Spirit) / pretend chores (Hexagoners)
+    if (!p.goal) {
+      const todo = p.tasks.filter(t => !t.done).map(t => st.map.stations.find(s => s.task === t.k)).filter(Boolean);
+      if (!hex && todo.length) { const s = todo.sort((a, b) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(p.x - b.x, p.y - b.y))[0]; p.goal = [s.x, s.y]; p.goalTask = s.task; }
+      else { p.goal = randomStation(); p.goalTask = null; }
+      p.aiTaskT = 6 + Math.random() * 6; // AI chores take a human-ish amount of time
+      if (!hex && Math.random() < 0.3) { p.goal = randomStation(); p.goalTask = null; p.aiTaskT = 1 + Math.random() * 3; } // sometimes just wander
+    }
+    if (goTo(p, p.goal[0], p.goal[1], dt)) {
+      p.aiTaskT -= dt;
+      if (p.aiTaskT <= 0) {
+        if (p.goalTask && !hex) { const t = p.tasks.find(t => t.k === p.goalTask && !t.done); if (t) { t.done = true; p.stats.tasks++; checkWin(); if (!st || st.phase !== 'play') return; } }
+        p.goal = null;
+      }
+    }
+  }
+  function aiMeeting(p, dt) {
+    const M = st.meeting; if (!M || !p.alive) return;
+    if (p.suspect && !(st.players.get(p.suspect) || {}).alive) p.suspect = null;
+    p.aiSay = (p.aiSay || 0) - dt;
+    if ((M.stage === 'discuss' || M.stage === 'vote') && p.aiSay <= 0 && (p.aiSaid || 0) < 2) {
+      p.aiSay = 2 + Math.random() * 5; p.aiSaid = (p.aiSaid || 0) + 1;
+      const acc = Object.entries(st.accuse || {}).sort((a, b) => b[1] - a[1])[0];
+      if (p.role === 'shape' && p.suspect) quick(p, QI("It's {N}!"), p.suspect, false);
+      else if (p.role === 'hex' && Math.random() < 0.5) { const sh = alive().filter(q => q.role === 'shape' && q !== p); if (sh.length) quick(p, QI('{N} is sus!'), pick(sh).id, false); }
+      else if (acc && acc[1] > 0) { const agree = p.role === 'shape' ? (p.suspect ? p.suspect === acc[0] : Math.random() < 0.6) : (st.players.get(acc[0]) || {}).role !== 'hex'; quick(p, pick(World.QUICK.map((e, i) => [e, i]).filter(([e]) => e.c === (agree ? 'agree' : 'deny')))[1], null, false); }
+      else quick(p, pick([QI('I need more proof.'), QI('Skip the vote?'), QI('Where are you?')]), null, false);
+    }
+    if (M.stage === 'vote' && p.vote === null) {
+      if (p.aiVoteAt == null) p.aiVoteAt = M.t - (3 + Math.random() * Math.min(12, Math.max(1, M.t - 4)));
+      if (M.t > p.aiVoteAt) return;
+      const acc = Object.entries(st.accuse || {}).filter(([id, n]) => n > 0 && (st.players.get(id) || {}).alive && id !== p.id).sort((a, b) => b[1] - a[1])[0];
+      let target = 'skip';
+      if (p.role === 'shape') { if (p.suspect && p.suspect !== p.id) target = p.suspect; else if (acc && Math.random() < 0.55) target = acc[0]; }
+      else { const safe = acc && (st.players.get(acc[0]) || {}).role !== 'hex' ? acc[0] : null; if (safe) target = safe; else if (Math.random() < 0.3) { const sh = alive().filter(q => q.role === 'shape'); if (sh.length) target = pick(sh).id; } }
+      vote(p, target);
+    }
+  }
+
   // ---------- main tick ----------
   function tick(dt, catchingUp) {
     if (!st) return; st.t += dt; st.tick++;
     const S = st.settings;
-    for (const p of st.players.values()) if (p.bot) botTick(p, dt);
+    for (const p of st.players.values()) if (p.bot) { if (p.ai && !st.practice && st.phase !== 'lobby') aiTick(p, dt); else botTick(p, dt); }
     for (const k in st.rattle) { st.rattle[k] -= dt; if (st.rattle[k] <= 0) delete st.rattle[k]; }
     if (st.phase === 'reveal') { st.phaseT -= dt; if (st.phaseT <= 0) { st.phase = 'play'; st.rosterDirty = true; } }
     else if (st.phase === 'play') {
