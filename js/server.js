@@ -184,7 +184,7 @@ const Server = {};
     const shapesOnly = sh.filter(p => !hexIds.has(p.id)), sqId = !practice && S.squareff && shapesOnly.length >= 2 ? shapesOnly[rnd(shapesOnly.length)].id : null;
     ps.forEach((p, i) => {
       p.sq = p.id === sqId;
-      p.alive = true; p.left = false; p.knownDead = false; p.role = hexIds.has(p.id) ? 'hex' : 'shape';
+      p.alive = true; p.left = false; p.knownDead = false; p.ejected = false; p.escaped = false; p.caught = false; p.role = hexIds.has(p.id) ? 'hex' : 'shape';
       p.type = p.role === 'hex' ? (bag.length ? bag.pop() : pool[rnd(pool.length)]) : null;
       p.hexCd = 15; p.plantCd = 15; p.shiftCd = 15; p.shiftT = 0; p.shiftAs = null; p.bells = S.bells; p.rattled = false; p.vote = null; p.camOn = false; p.hold = -1;
       p.suspect = null; p.sawAt = 0; p.goal = null; p.aiBtn = null; p.aiSaid = 0;
@@ -211,7 +211,7 @@ const Server = {};
     const order = shuffle(ps), mino = order[0];
     st.maze = { mino: mino.id, head: MAZE.head, time: MAZE.time, keys: st.map.keys.map(k => ({ x: k.x, y: k.y, got: null })), open: false };
     ps.forEach((p, i) => {
-      p.alive = true; p.left = false; p.knownDead = false; p.role = p === mino ? 'mino' : 'runner'; p.type = null; p.sq = false; p.escaped = false; p.caught = false; p.shiftAs = null;
+      p.alive = true; p.left = false; p.knownDead = false; p.ejected = false; p.role = p === mino ? 'mino' : 'runner'; p.type = null; p.sq = false; p.escaped = false; p.caught = false; p.shiftAs = null;
       p.tasks = []; p.stats = z(); p.stats.keys = 0; p.stats.caught = 0; p.vote = null; p.hold = -1; p.camOn = false; p.goal = null; p.ready = false;
       const s = p === mino ? st.map.minoStart : st.map.seats[i % 20]; teleport(p, s[0], s[1]);
     });
@@ -453,7 +453,7 @@ const Server = {};
   }
   function backToLobby() {
     st.phase = 'lobby'; st.mode = 'hex'; st.maze = null; st.map = World.buildLobby(); st.bodies = []; st.marks = []; st.sab = { k: null }; st.meeting = null; st.over = null;
-    let i = 0; for (const id of [...st.players.keys()]) { const p = st.players.get(id); if (p.left) { st.players.delete(id); continue; } p.alive = true; p.role = 'shape'; p.type = null; p.shiftAs = null; p.ready = p.bot; p.muteMatch = false; p.tasks = []; const s = st.map.seats[i++ % 20]; teleport(p, s[0], s[1]); }
+    let i = 0; for (const id of [...st.players.keys()]) { const p = st.players.get(id); if (p.left) { st.players.delete(id); continue; } p.alive = true; p.knownDead = false; p.ejected = false; p.escaped = false; p.caught = false; p.role = 'shape'; p.type = null; p.shiftAs = null; p.ready = p.bot; p.muteMatch = false; p.tasks = []; const s = st.map.seats[i++ % 20]; teleport(p, s[0], s[1]); }
     st.order = st.order.filter(id => st.players.has(id)); if (!st.hexManual) st.settings.hexCount = Server.suggestHex(st.players.size);
     st.rosterDirty = true; sendAll({ t: 'e', k: 'lobby' });
   }
