@@ -108,9 +108,10 @@ Write words in lower case without tricks; the filter handles the `@`/`4`/`$`/spa
 
 - Plain HTML, CSS and JavaScript with the HTML5 Canvas 2D API. There is no build step.
 - The game is drawn on a small pixel canvas and scaled up by a whole number with smoothing turned **off**, so pixels stay perfectly crisp.
-- Multiplayer uses **PeerJS** (WebRTC), with the lobby code as the room ID. The host's browser is the game server. It decides roles, positions, hexes, marks, votes and timers, and sends each player about 15 updates per second. Each player only receives what they're allowed to know: nobody else's role, Hexagoner type or Planter marks, and no players outside their vision circle.
+- Multiplayer first tries a **direct** connection with **PeerJS** (WebRTC), with the lobby code as the room ID. If that can't connect (different houses, phones on 4G/5G, strict routers), the game automatically switches to the **relay**: messages travel through free public MQTT servers (test.mosquitto.org, with broker.emqx.io as backup) over secure WebSockets. Relayed messages are end-to-end encrypted (ECDH + AES-GCM) with a key only the host and that player share, so nobody can peek. The lobby shows "CONNECTED DIRECTLY" or "CONNECTED VIA RELAY".
+- The host's browser is the game server. It decides roles, positions, hexes, marks, votes and timers, and sends each player about 15 updates per second. Each player only receives what they're allowed to know: nobody else's role, Hexagoner type or Planter marks, and no players outside their vision circle.
 - Your name, look, music choice and volumes are saved in your browser (`localStorage`).
-- PeerJS uses its free public connection broker to introduce players. After that, players talk directly to the host. Some very strict school or office networks block this kind of connection.
+- Both PeerJS and the relay servers are free public services. If a school or office network blocks them, play from a home network or phone data instead.
 
 | File | What's inside |
 |---|---|
@@ -119,7 +120,8 @@ Write words in lower case without tricks; the filter handles the `@`/`4`/`$`/spa
 | `js/audio.js` | All music and sound effects (Web Audio) |
 | `js/gfx.js` | Pixel font, palette, character, object and effect art |
 | `js/world.js` | The Toy Workshop map, rooms, props, collisions |
-| `js/net.js` | PeerJS lobby codes and connections |
+| `js/net.js` | Lobby codes; tries a direct connection, then the relay |
+| `js/relay.js` | Encrypted fallback relay over public MQTT WebSockets |
 | `js/server.js` | The host's game rules, chat filtering and secret-safe updates |
 | `js/ui.js` | Input, buttons, menus, text boxes |
 | `js/tasks.js` | The 13 chore mini-games |

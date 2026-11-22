@@ -4,7 +4,7 @@ const N = +process.argv[2] || 4;
 (async () => {
   const b = await launch(9302);
   const tabs = [];
-  for (let i = 0; i < N; i++) { tabs.push(await newTab(b, 'http://localhost:8792/', 800, 480)); }
+  const J = process.env.RELAY ? '?relay=1' : ''; for (let i = 0; i < N; i++) { tabs.push(await newTab(b, 'http://localhost:8792/' + (i ? J : ''), 800, 480)); }
   await sleep(3500);
   const names = ['HOSTY', 'BLOB', 'ZIGZAG', 'POINTY', 'ROUNDY', 'SQUAREO'];
   for (let i = 0; i < N; i++) await tabs[i].eval(`UI.prof.name=${JSON.stringify(names[i])}; UI.prof.look.color=${i * 3}; UI.prof.look.shape=${i}; 1`);

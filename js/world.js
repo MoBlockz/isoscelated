@@ -6,9 +6,9 @@ const World = {};
   const P = G.P;
   // task kinds (mini-games) with their station room/prop
   World.TASKS = {
-    pipes: 'Connect paint pipes', gears: 'Match gear sizes', code: 'Type blueprint code', yarn: 'Untangle yarn', sort: 'Sort colored blocks',
-    cupcake: 'Frost a cupcake', compass: 'Aim blimp compass', windbox: 'Wind the music box', keycard: 'Swipe keycard', rings: 'Stack rings',
-    matchtoys: 'Find 3 matching toys', gauge: 'Fill boiler gauge', candy: 'Refill candy jars'
+    pipes: 'Connect pipes', gears: 'Match gears', code: 'Blueprint code', yarn: 'Untangle yarn', sort: 'Sort blocks',
+    cupcake: 'Frost cupcake', compass: 'Aim compass', windbox: 'Wind music box', keycard: 'Swipe keycard', rings: 'Stack rings',
+    matchtoys: 'Match 3 toys', gauge: 'Fill boiler', candy: 'Refill candy'
   };
   World.TASK_KEYS = Object.keys(World.TASKS);
 
@@ -30,7 +30,7 @@ const World = {};
     ['Toy Testing Lab', 2, 42, 16, 11, ['#f2e6a8', '#ead994'], '#c4973a', 'check'],
     ['Boiler Room', 24, 42, 16, 11, ['#c4a49a', '#b8968b'], '#8a4a3c', 'plate'],
   ];
-  const HALL = [[16, 5, 6, 3], [36, 5, 6, 3], [56, 5, 6, 3], [7, 12, 3, 8], [28, 12, 3, 6], [16, 24, 6, 3], [42, 24, 6, 3], [62, 24, 4, 3], [69, 12, 3, 10], [8, 32, 3, 10], [30, 34, 3, 8], [18, 46, 6, 3], [40, 46, 13, 3], [53, 32, 3, 17], [53, 12, 3, 8]];
+  const HALL = [[16, 5, 6, 3], [36, 5, 6, 3], [56, 5, 6, 3], [7, 12, 3, 8], [23, 12, 3, 6], [16, 24, 6, 3], [42, 24, 6, 3], [62, 24, 4, 3], [69, 12, 3, 10], [8, 32, 3, 10], [30, 34, 3, 8], [18, 46, 6, 3], [40, 46, 13, 3], [53, 32, 3, 17], [53, 12, 3, 8]];
 
   World.buildWorkshop = function () {
     const m = makeMap(78, 56); m.kind = 'workshop'; m.hallFloor = ['#d6cfc0', '#cdc5b4']; m.hallWall = '#8b8174';
@@ -50,31 +50,31 @@ const World = {};
     prop(m, 'conveyor', 23, 9, 6, 1); prop(m, 'crate', 34, 10, 1, 1);
     // Library
     prop(m, 'shelf', 43, 2, 4, 1); prop(m, 'shelf', 49, 2, 4, 1); prop(m, 'desk', 47, 6, 3, 1); station(m, 'task', 48, 7, { task: 'code' });
-    prop(m, 'button', 55, 2, 1, 1); station(m, 'melt', 55, 3, { btn: 1 }); prop(m, 'toybox', 43, 10, 1, 1, true, { chute: 1 }); prop(m, 'plant', 42, 6, 1, 1);
+    prop(m, 'button', 55, 2, 1, 1); station(m, 'melt', 55, 3, { btn: 1 }); prop(m, 'toybox', 43, 10, 1, 1, true, { chute: 1 }); prop(m, 'plant', 42, 2, 1, 1);
     // Storage Attic
     prop(m, 'crate', 63, 2, 2, 2); prop(m, 'yarnbasket', 68, 2, 2, 1); station(m, 'task', 69, 3, { task: 'yarn' });
     prop(m, 'blockbin', 72, 2, 2, 1); station(m, 'task', 73, 3, { task: 'sort' }); prop(m, 'crate', 73, 9, 2, 2); prop(m, 'toybox', 63, 10, 1, 1, true, { chute: 2 });
     // Candy Kitchen
-    prop(m, 'oven', 3, 20, 2, 1); station(m, 'task', 4, 21, { task: 'cupcake' }); prop(m, 'candymachine', 9, 20, 2, 2); station(m, 'task', 10, 22, { task: 'candy' });
+    prop(m, 'oven', 3, 20, 2, 1); station(m, 'task', 4, 21, { task: 'cupcake' }); prop(m, 'candymachine', 11, 20, 2, 2); station(m, 'task', 12, 22, { task: 'candy' });
     prop(m, 'lever', 14, 20, 1, 1); station(m, 'switch', 14, 21, { sw: 1 }); prop(m, 'toybox', 3, 30, 1, 1, true, { chute: 3 }); prop(m, 'counter', 7, 28, 4, 1);
     // Blimp Dock
-    prop(m, 'blimp', 25, 18, 14, 3); prop(m, 'compass', 40, 18, 1, 1); station(m, 'task', 40, 19, { task: 'compass' });
+    prop(m, 'blimp', 26, 18, 14, 3); prop(m, 'compass', 40, 18, 1, 1); station(m, 'task', 40, 19, { task: 'compass' });
     prop(m, 'table', 30, 25, 4, 3); station(m, 'bell', 32, 28.5); prop(m, 'plant', 22, 18, 1, 1); prop(m, 'plant', 22, 33, 1, 1); prop(m, 'plant', 41, 33, 1, 1);
     // Music Box Hall
     prop(m, 'musicbox', 50, 20, 2, 1); station(m, 'task', 51, 21, { task: 'windbox' }); prop(m, 'piano', 56, 20, 3, 2); prop(m, 'drum', 49, 29, 1, 1); prop(m, 'drum', 60, 29, 1, 1);
     // Security Booth
-    prop(m, 'console', 68, 22, 4, 1); station(m, 'cams', 70, 23); prop(m, 'reader', 74, 22, 1, 1); station(m, 'task', 74, 23, { task: 'keycard' });
+    prop(m, 'console', 66, 22, 3, 1); station(m, 'cams', 67, 23); prop(m, 'reader', 74, 22, 1, 1); station(m, 'task', 74, 23, { task: 'keycard' });
     // Toy Testing Lab
-    prop(m, 'ringpeg', 4, 42, 1, 1); station(m, 'task', 4, 43, { task: 'rings' }); prop(m, 'toyshelf', 9, 42, 3, 1); station(m, 'task', 10, 43, { task: 'matchtoys' });
+    prop(m, 'ringpeg', 4, 42, 1, 1); station(m, 'task', 4, 43, { task: 'rings' }); prop(m, 'toyshelf', 12, 42, 3, 1); station(m, 'task', 13, 43, { task: 'matchtoys' });
     prop(m, 'toybox', 16, 51, 1, 1, true, { chute: 4 }); prop(m, 'conveyor', 3, 49, 6, 1);
     // Boiler Room
-    prop(m, 'boiler', 29, 42, 4, 2); station(m, 'task', 31, 44, { task: 'gauge' }); prop(m, 'button', 25, 42, 1, 1); station(m, 'melt', 25, 43, { btn: 0 });
-    prop(m, 'pipesv', 36, 42, 2, 1); prop(m, 'toybox', 38, 51, 1, 1, true, { chute: 5 });
+    prop(m, 'boiler', 34, 42, 4, 2); station(m, 'task', 36, 44, { task: 'gauge' }); prop(m, 'button', 25, 42, 1, 1); station(m, 'melt', 25, 43, { btn: 0 });
+    prop(m, 'pipesv', 26, 43, 2, 1); prop(m, 'toybox', 38, 51, 1, 1, true, { chute: 5 });
     // chutes stations
     m.props.filter(p => p.chute != null).sort((a, b) => a.chute - b.chute).forEach(p => { m.chutes.push({ x: p.x * T + 8, y: p.y * T + 8 + 14, prop: p.id, room: m.room[p.y * m.w + p.x], i: p.chute }); });
     m.chutes.forEach(c => station(m, 'chute', 0, 0, { x: c.x, y: c.y, chute: c.i, room: c.room }));
     // cameras: 4 feeds (centre points)
-    m.cams = [{ name: 'Blimp Dock', x: 32 * T, y: 30 * T }, { name: 'Gear Hall', x: 30 * T, y: 7 * T }, { name: 'Candy Hall', x: 19 * T, y: 25.5 * T }, { name: 'Boiler Hall', x: 46 * T, y: 47.5 * T }];
+    m.cams = [{ name: 'Blimp Dock', x: 32 * T, y: 30 * T }, { name: 'Gear Hall', x: 24 * T, y: 14 * T }, { name: 'Candy Hall', x: 19 * T, y: 25.5 * T }, { name: 'Boiler Hall', x: 46 * T, y: 47.5 * T }];
     // meeting seats around the table (pixel coords)
     const cx = 32 * T, cy = 26.5 * T;
     for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; m.seats.push([Math.round(cx + Math.cos(a) * 66), Math.round(cy + Math.sin(a) * 50)]); }
@@ -105,6 +105,10 @@ const World = {};
   World.hit = function (m, x, y, jam) { return World.blocked(m, x - 5, y - 4, jam) || World.blocked(m, x + 5, y - 4, jam) || World.blocked(m, x - 5, y + 1, jam) || World.blocked(m, x + 5, y + 1, jam); };
   World.move = function (m, e, dx, dy, ghost, jam) {
     if (ghost) { e.x = Math.max(8, Math.min(m.w * T - 8, e.x + dx)); e.y = Math.max(16, Math.min(m.h * T - 4, e.y + dy)); return; }
+    if (World.hit(m, e.x, e.y, jam)) { // stuck inside something? pop out to the nearest free spot
+      for (let r = 2; r <= 40; r += 2) for (let a = 0; a < 16; a++) { const nx = e.x + Math.cos(a / 8 * Math.PI) * r, ny = e.y + Math.sin(a / 8 * Math.PI) * r; if (!World.hit(m, nx, ny, jam)) { e.x = nx; e.y = ny; return; } }
+      return;
+    }
     if (dx && !World.hit(m, e.x + dx, e.y, jam)) e.x += dx; else if (dx) { // slide around corners
       for (const s of [3, -3]) if (!World.hit(m, e.x + dx, e.y + s, jam) && !World.hit(m, e.x, e.y + s, jam)) { e.y += Math.sign(s) * Math.min(Math.abs(dx), 1); break; }
     }

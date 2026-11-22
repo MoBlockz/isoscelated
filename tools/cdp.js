@@ -21,6 +21,7 @@ async function newTab(b, url, w, h, dpr) {
   await send('Runtime.enable'); await send('Page.enable');
   await send('Emulation.setDeviceMetricsOverride', { width: w || 800, height: h || 480, deviceScaleFactor: dpr || 1, mobile: !!dpr });
   await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+  if (dpr) await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   const tab = {
     logs, send,
     async eval(expr) { const r = await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true }); if (r.result && r.result.exceptionDetails) throw new Error('eval: ' + (r.result.exceptionDetails.exception ? r.result.exceptionDetails.exception.description : r.result.exceptionDetails.text)); return r.result && r.result.result ? r.result.result.value : undefined; },

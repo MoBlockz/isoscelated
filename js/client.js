@@ -22,7 +22,7 @@ const Game = {};
       mode, id: mode === 'join' ? null : 'h', code: '', phase: 'lobby', roster: [], byId: {}, settings: Object.assign({}, Server.DEF), inbox: [],
       me: { x: 12 * T, y: 8 * T, dir: 0, mv: 0, anim: 0, tpSeq: 0, stepT: 0 }, mine: { alive: 1, tasks: [] }, others: new Map(), bodies: [], snap: null,
       chat: [], bubbles: {}, toasts: [], overlay: null, reveal: null, meetFx: null, eject: null, over: null, muted: new Set(), oopsT: 0,
-      sendT: 0, map: World.buildLobby(), rattle: {}, wobble: {}, vis: 92, lastRoom: '', roomT: 0, holding: false, card: null, chatOpen: false, chatCh: 'all',
+      sendT: 0, map: World.buildLobby(), rattle: {}, wobble: {}, vis: 184, lastRoom: '', roomT: 0, holding: false, card: null, chatOpen: false, chatCh: 'all',
       seenBodies: new Set(), jukebox: null, connected: false, scroll: 0, practice: mode === 'practice', lastChatSent: 0, hexedT: -1, meetCount: 0
     };
   }
@@ -47,6 +47,7 @@ const Game = {};
     C.link = Net.join(code, {
       onOpen: conn => { if (C !== sess) return; C.conn = conn; C.code = code; conn.send({ t: 'hello', name: UI.prof.name, look: UI.prof.look, token: UI.prof.token }); },
       onMsg: m => { if (C === sess) C.inbox.push(m); },
+      onStatus: txt => { if (C === sess) Game.connMsg = txt; },
       onClose: () => { if (C === sess && !C.leaving) Game.toMenu(C.errMsg || 'Host left the lobby.'); },
       onError: m => { if (C === sess) Game.toMenu(m); }
     });
@@ -93,6 +94,7 @@ const Game = {};
     C.snap = s; const mine = s.me; C.mine = mine;
     if (mine.tp[0] !== C.me.tpSeq) { C.me.tpSeq = mine.tp[0]; C.me.x = mine.tp[1]; C.me.y = mine.tp[2]; }
     const now = performance.now(), seen = new Set();
+    if (C.lastSnapT) { C.snapGap = (C.snapGap || 66) * 0.9 + Math.min(500, now - C.lastSnapT) * 0.1; C.interpDelay = Math.max(110, Math.min(320, C.snapGap * 1.7)); } C.lastSnapT = now;
     for (const r of s.p) {
       const [id, x, y, d, mv, disp, fl] = r; if (id === C.id) { C.me.fl = fl; C.me.disp = disp; continue; }
       seen.add(id); let o = C.others.get(id);
@@ -138,7 +140,7 @@ const Game = {};
         UI.say(e.s === 'lights' ? 'LIGHTS OUT! Flip the 2 switches (Gear Room + Candy Kitchen)!' : e.s === 'melt' ? 'BOILER MELTDOWN! Two players must hold the buttons in the Boiler Room AND the Library at the same time!' : 'The ' + e.room + ' doors are jammed!', { auto: 2.5, top: true, col: '#ffe0e0' }); break;
       case 'sabfix': if (e.text) UI.say(e.text, { auto: 1.5, top: true }); Snd.sfx('task'); C.holding = false; break;
       case 'meeting': C.meetFx = { t: 0, t0: performance.now(), reason: e.reason, by: e.by, body: e.body, obj: e.obj }; C.meetCount++; Snd.sfx(e.reason === 'bell' ? 'bell' : 'report'); Snd.sfx('reveal'); Tasks.close(); C.overlay = null; C.card = null; C.chatCh = (C.mine.alive ? 'all' : 'spirit'); break;
-      case 'eject': C.eject = { id: e.id, text: e.text, counts: e.counts, skips: e.skips, t: 0, t0: performance.now(), look: e.id ? lookOf(e.id) : null }; break;
+      case 'eject': C.eject = { id: e.id, text: e.text, counts: e.counts, skips: e.skips, as: e.as, piece: e.piece, t: 0, t0: performance.now(), look: e.id ? lookOf(e.id) : null }; break;
       case 'resume': C.eject = null; C.meetFx = null; C.chatOpen = false; break;
       case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
       case 'lobby': C.over = null; break;
@@ -206,7 +208,7 @@ const Game = {};
     if (C.sendT <= 0 && C.connected) { C.sendT = 1 / 15; send({ t: 'm', x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, d: me.dir, v: me.mv, s: me.tpSeq }); }
   }
   function interp(o, now) {
-    const rt = now - 110, b = o.buf; if (!b.length) return;
+    const rt = now - (C.interpDelay || 110), b = o.buf; if (!b.length) return;
     let a = b[0], c = b[b.length - 1];
     for (let i = 0; i < b.length - 1; i++) if (b[i][0] <= rt && b[i + 1][0] >= rt) { a = b[i]; c = b[i + 1]; break; }
     if (rt >= c[0]) { o.x = c[1]; o.y = c[2]; o.dir = c[3]; o.mv = c[4]; return; }
@@ -277,7 +279,7 @@ const Game = {};
     C.toasts.forEach(x => x.t -= dt); C.toasts = C.toasts.filter(x => x.t > 0);
     // vision radius (animated)
     const sabK = C.snap && C.snap.sab && C.snap.sab.k;
-    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 122 : 108) : (sabK === 'lights' ? 38 : 92);
+    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 244 : 216) : (sabK === 'lights' ? 76 : 184);
     C.vis += (target - C.vis) * Math.min(1, dt * 3);
 
     drawWorld(dt, t);
@@ -334,6 +336,7 @@ const Game = {};
     const myDisp = C.mine.shiftAs || C.id;
     list.push({ y: me.y, f: () => drawPlayer(lookOf(myDisp), nameOf(myDisp), me.x, me.y, me.dir, me.anim, me.mv, { me: true, spirit: iAmSpirit }) });
     list.sort((a, b) => a.y - b.y); for (const d of list) d.f();
+    drawStationHints(t);
     G.updateFx(dt, camx, camy);
     // bubbles
     for (const [id, o] of C.others) if (o.vis && C.bubbles[id]) drawBubble(id, o.x, o.y);
@@ -344,7 +347,45 @@ const Game = {};
     // room name popup
     const rn = World.roomName(m, me.x, me.y);
     if (rn !== C.lastRoom) { C.lastRoom = rn; C.roomT = 2; }
-    if (C.roomT > 0 && C.phase === 'play' && rn !== 'Hallway') { C.roomT -= dt; G.text(rn, G.W / 2, G.H - 70, P.white, { al: 'c', ol: P.ink }); }
+    if (C.roomT > 0 && C.phase === 'play' && rn !== 'Hallway') { C.roomT -= dt; G.text(rn, G.W / 2, G.H - (UI.isTouch ? 112 : 70), P.white, { al: 'c', ol: P.ink }); }
+  }
+  // ---------- station hints: what is this thing, and is it one of MY jobs? ----------
+  function stationInfo(s) {
+    const mine = C.mine || {}, sab = C.snap && C.snap.sab, alive = !!mine.alive;
+    switch (s.kind) {
+      case 'task': { const todo = C.phase === 'play' && (mine.tasks || []).some(t => t[0] === s.task && !t[1]); return { name: World.TASKS[s.task], todo, col: P.yellow }; }
+      case 'switch': return { name: 'Light switch', todo: alive && sab && sab.k === 'lights' && !sab.sw[s.sw], col: P.red };
+      case 'melt': return { name: 'Meltdown button', todo: alive && sab && sab.k === 'melt', col: P.red };
+      case 'cams': return { name: 'Security cameras', todo: false };
+      case 'bell': return { name: 'Meeting bell', todo: false };
+      case 'chute': return C.myRole === 'hex' && alive ? { name: 'Toy chute', todo: false, col: P.pink } : null;
+      case 'jukebox': return { name: 'Music box (jukebox)', todo: true, col: P.pink };
+      case 'mirror': return { name: 'Mirror (change look)', todo: true, col: P.sky };
+    }
+    return null;
+  }
+  function drawStationHints(t) {
+    const me = C.me, bob = Math.round(Math.abs(Math.sin(t * 4)) * 3), use = context().use;
+    for (const s of C.map.stations) {
+      const info = stationInfo(s); if (!info) continue;
+      const sx = Math.round(s.x - camx), sy = Math.round(s.y - camy) - 22; // label sits above the station's prop
+      if (sx < -60 || sy < -20 || sx > G.W + 60 || sy > G.H + 20) continue;
+      const d = Math.hypot(me.x - s.x, me.y - s.y), close = d < 90;
+      if (info.todo) { G.text('!', sx - 4, sy - 14 - bob, info.col || P.yellow, { ol: P.ink }); }
+      if (info.todo || close) G.tiny(info.name, sx, sy - 2, info.todo ? (info.col || P.yellow) : P.white, 'c');
+      if (use === s) { // pulsing brackets around the thing you can use right now
+        const k = (t * 3 | 0) % 2, x0 = sx - 12, y0 = sy + 2, x1 = sx + 11, y1 = sy + 24, c = k ? P.yellow : P.white;
+        for (const [x, y, ax, ay] of [[x0, y0, 1, 1], [x1, y0, -1, 1], [x0, y1, 1, -1], [x1, y1, -1, -1]]) { G.rect(Math.min(x, x + ax * 4), y, 5, 1, c); G.rect(x, Math.min(y, y + ay * 4), 1, 5, c); }
+      }
+    }
+  }
+  function usePrompt(cx) { // big readable "E: do this" banner above the buttons
+    if (!cx.use) return; const info = stationInfo(cx.use); if (!info) return;
+    const verb = cx.use.kind === 'melt' ? 'HOLD' : cx.use.kind === 'switch' ? 'FLIP' : cx.use.kind === 'bell' ? 'RING' : 'USE';
+    const left = UI.isTouch ? 90 : 4, right = G.W - (C.phase === 'play' ? 150 : 60), maxc = Math.max(6, Math.floor((right - left - 12) / 8));
+    let txt = (UI.isTouch ? verb + ': ' : 'E: ') + info.name; if (txt.length > maxc) txt = txt.slice(0, maxc - 1) + '.';
+    const w = txt.length * 8 + 12, x = Math.round(Math.max(left, (left + right) / 2 - w / 2)), y = G.H - (UI.isTouch ? 26 : 22);
+    G.box(x, y, w, 18, '#fff6c8'); G.text(txt, x + 6, y + 5, P.ink);
   }
   function drawBody(b, dt) {
     const [id, obj, x, y, rep] = b; const sx = Math.round(x - camx), sy = Math.round(y - camy);
@@ -409,6 +450,7 @@ const Game = {};
     G.text('LOBBY CODE', G.W / 2, 8, P.mid, { al: 'c' });
     G.text(C.code, G.W / 2, 18, P.dblue, { al: 'c', sc });
     G.text(n + '/20 players  ' + ready + ' ready', G.W / 2, 8 * sc + 30, P.white, { al: 'c', ol: P.ink });
+    if (C.mode === 'join' && C.link && C.link.mode) G.tiny(C.link.mode === 'relay' ? 'CONNECTED VIA RELAY' : 'CONNECTED DIRECTLY', G.W / 2, 8 * sc + 41, C.link.mode === 'relay' ? P.yellow : P.lime, 'c');
     // left column
     let y = 6; smallBtn(4, y, 'LEAVE', () => confirmLeave()); y += 20;
     if (host) { smallBtn(4, y, 'NEW CODE', () => { Server.newCode(); }); y += 20; }
@@ -434,7 +476,7 @@ const Game = {};
     smallBtn(qx, G.H - 20, 'QUICK', () => { C.overlay = 'quick'; });
     // use prompt
     const cx2 = context();
-    if (cx2.use) { const lbl = cx2.use.kind === 'jukebox' ? 'MUSIC BOX' : 'MIRROR'; UI.action(G.W - 34, G.H - 34, 22, 'USE', () => doUse(cx2), { col: P.green, key: 'E' }); G.text(lbl, G.W - 34, G.H - 66, P.white, { al: 'c', ol: P.ink }); }
+    if (cx2.use) { UI.action(G.W - 34, G.H - 34, 22, 'USE', () => doUse(cx2), { col: P.green, key: 'E' }); usePrompt(cx2); }
     if (!C.overlay && !UI.typing()) { if (UI.hit('use') && cx2.use) doUse(cx2); if (UI.hit('chat') || UI.hit('key:Enter')) Game.openChat(); if (UI.hit('quick')) openOv('quick', 'quick'); if (UI.hit('back')) openOv('pause', 'back'); }
     drawDpad();
   }
@@ -444,56 +486,73 @@ const Game = {};
   // ---------- PLAY HUD ----------
   function drawPlayHud(dt, t) {
     const s = C.snap; if (!s) return; const mine = C.mine, hex = C.myRole === 'hex', alive = !!mine.alive;
-    // task bar
-    const bw = Math.min(180, G.W - 170), bx = Math.floor(G.W / 2 - bw / 2);
-    G.rect(bx - 2, 3, bw + 4, 12, P.ink); G.rect(bx, 5, bw, 8, P.dgreen); G.rect(bx, 5, Math.round(bw * s.bar), 8, P.lime);
-    for (let i = 0; i < bw; i += 10) G.rect(bx + i, 5, 1, 8, 'rgba(0,0,0,0.15)');
-    G.text('CHORES', bx + bw / 2, 5, P.white, { al: 'c', ol: P.dgreen });
-    if (s.mt >= 0) { G.text(UI.fmtT(s.mt), bx + bw + 8, 5, s.mt < 60 ? P.red : P.white, { ol: P.ink }); }
-    // sabotage banner
+    // ---- role badge (top-left) ----
+    const roleTxt = !alive ? 'SPIRIT' : hex ? 'HEXAGONER' : 'SHAPE', roleCol = !alive ? '#5d7fd0' : hex ? P.dred : P.blue;
+    const goal = !alive ? 'Keep doing chores! Chat with Spirits.' : hex ? (TYPE_NAME[C.myType] || '') + ': hex Shapes, don\'t get caught' : 'Do chores. Find the Hexagoners!';
+    const rw = roleTxt.length * 8 + 12; G.rect(3, 3, rw + 2, 15, P.ink); G.rect(4, 4, rw, 13, roleCol); G.text(roleTxt, 10, 7, P.white);
+    // ---- chore bar (top-centre) ----
+    const bw = Math.max(90, Math.min(200, G.W - rw - 150)), bx = Math.floor(Math.max(rw + 12, G.W / 2 - bw / 2));
+    G.rect(bx - 2, 3, bw + 4, 15, P.ink); G.rect(bx, 5, bw, 11, P.dgreen); G.rect(bx, 5, Math.round(bw * s.bar), 11, P.lime);
+    for (let i = 10; i < bw; i += 10) G.rect(bx + i, 5, 1, 11, 'rgba(0,0,0,0.18)');
+    G.text('CHORES ' + Math.floor(s.bar * 100) + '%', bx + bw / 2, 7, P.white, { al: 'c', ol: P.dgreen });
+    if (s.mt >= 0) { const tx = bx + bw + 6, tt = UI.fmtT(s.mt); G.rect(tx, 3, tt.length * 8 + 8, 15, P.ink); G.text(tt, tx + 4, 7, s.mt < 60 && (t * 2 | 0) % 2 ? P.red : P.white); }
+    G.tiny(goal, 5, 21, hex ? P.pink : '#cfe0ff');
+    // ---- sabotage alarm: big dark-red box, right of the chore panel ----
+    const panelW = Math.min(G.W * 0.42, 150);
     if (s.sab) {
-      const fl = (t * 3 | 0) % 2; let txt = '';
-      if (s.sab.k === 'lights') txt = 'LIGHTS OUT! Switches ' + s.sab.sw.filter(Boolean).length + '/2';
-      if (s.sab.k === 'melt') txt = 'MELTDOWN ' + s.sab.t + 's! Hold BOTH buttons ' + (s.sab.hold ? s.sab.hold.filter(Boolean).length : 0) + '/2';
-      if (s.sab.k === 'jam') txt = C.map.rooms[s.sab.room].name + ' doors jammed ' + s.sab.t + 's';
-      G.text(txt, G.W / 2, 19, fl ? P.red : P.yellow, { al: 'c', ol: P.ink });
+      const fl = (t * 3 | 0) % 2; let l1 = '', l2 = '';
+      if (s.sab.k === 'lights') { l1 = 'LIGHTS OUT!'; l2 = 'Flip BOTH switches: Gear Room + Candy Kitchen (' + s.sab.sw.filter(Boolean).length + '/2 done)'; }
+      if (s.sab.k === 'melt') { l1 = 'MELTDOWN ' + s.sab.t + 's!'; l2 = 'Two players HOLD the buttons in Boiler Room AND Library (' + (s.sab.hold ? s.sab.hold.filter(Boolean).length : 0) + '/2)'; }
+      if (s.sab.k === 'jam') { l1 = 'DOORS JAMMED ' + s.sab.t + 's'; l2 = C.map.rooms[s.sab.room].name + ' is locked shut'; }
+      const x = Math.round(panelW + 10), w = G.W - x - 4, big = w > l1.length * 16 + 10, lines = G.wrap(l2, Math.floor((w - 10) / 4)), h = (big ? 22 : 14) + lines.length * 7 + 4;
+      G.box(x, 40, w, h, fl ? '#7a1426' : '#4a0c18', P.ink);
+      G.text(l1, x + w / 2, 45, fl ? P.yellow : P.white, { al: 'c', sc: big ? 2 : 1 });
+      lines.forEach((l, i) => G.tiny(l, x + w / 2, 45 + (big ? 19 : 11) + i * 7, P.white, 'c'));
     }
-    // role + tasks (top-left)
-    let y = 20;
-    if (!alive) { G.text('SPIRIT', 4, y, '#bcd7ff', { ol: P.ink }); y += 10; }
-    if (hex) { G.text('HEXAGONER', 4, 4, P.hexred, { ol: P.ink }); G.tiny(TYPE_NAME[C.myType] || '', 4, 13, P.pink); }
-    else G.text('SHAPE', 4, 4, P.sky, { ol: P.ink });
-    if (C.showTasks !== false) {
-      const tl = mine.tasks || []; if (hex) { G.tiny('FAKE TASKS (BAR NEVER MOVES):', 4, y, P.pink); y += 7; }
-      tl.forEach(tk => { const st = C.map.stations.find(s2 => s2.task === tk[0]); const room = st ? C.map.rooms[st.room].name : ''; G.tiny((tk[1] ? '* ' : '- ') + World.TASKS[tk[0]] + ' (' + room + ')', 4, y, tk[1] ? P.lime : P.white); y += 7; });
+    // ---- chore list panel (left), tap the header to fold it ----
+    let y = 30; const tl = mine.tasks || [], doneN = tl.filter(x => x[1]).length;
+    const head = (hex ? 'FAKE CHORES' : 'MY CHORES') + ' ' + doneN + '/' + tl.length + (C.showTasks === false ? ' ▶' : ' ▼');
+    const pw = panelW, showRoom = G.H >= 250, rowH = showRoom ? 16 : 11;
+    G.rect(3, y, pw, 12, 'rgba(14,10,24,0.82)'); G.text(head, 7, y + 2, hex ? P.pink : P.yellow);
+    UI.area(3, y, pw, 12, () => { C.showTasks = C.showTasks === false; }, { silent: false }); y += 12;
+    if (C.showTasks !== false && tl.length) {
+      const rows = tl.length; G.rect(3, y, pw, rows * rowH + 3, 'rgba(14,10,24,0.62)');
+      if (hex) { /* hexagoners: tasks are only for blending in */ }
+      tl.forEach(tk => {
+        const st = C.map.stations.find(s2 => s2.task === tk[0]); const room = st ? C.map.rooms[st.room].name : '';
+        const nm = World.TASKS[tk[0]], maxc = Math.floor((pw - 18) / 8);
+        G.text(tk[1] ? '✔' : '▶', 6, y + 2, tk[1] ? P.lime : P.yellow); G.text(nm.length > maxc ? nm.slice(0, maxc - 1) + '.' : nm, 15, y + 2, tk[1] ? '#8fbf7a' : P.white);
+        if (showRoom) G.tiny(room, 15, y + 11, tk[1] ? P.mid : P.grey); y += rowH;
+      });
+      if (hex) { G.tiny('BAR NEVER MOVES FOR YOU', 6, y + 2, P.pink); y += 8; }
     }
-    // top right small buttons
-    let rx = G.W - 4; rx -= 50; smallBtn(rx, 20, 'MENU', () => { C.overlay = 'pause'; });
-    rx -= 42; smallBtn(rx, 20, 'MAP', () => { C.overlay = 'map'; });
-    rx -= 58; smallBtn(rx, 20, 'QUICK', () => { C.overlay = 'quick'; });
-    const ch = chatChannel(); if (ch && C.settings.chat === 'full') { rx -= 50; smallBtn(rx, 20, 'CHAT', () => Game.openChat(), { col: ch === 'hex' ? P.pink : '#cfe0ff' }); }
+    // ---- top-right buttons ----
+    let rx = G.W - 4; rx -= 50; smallBtn(rx, 22, 'MENU', () => { C.overlay = 'pause'; });
+    rx -= 42; smallBtn(rx, 22, 'MAP', () => { C.overlay = 'map'; });
+    rx -= 58; smallBtn(rx, 22, 'QUICK', () => { C.overlay = 'quick'; });
+    const ch = chatChannel(); if (ch && C.settings.chat === 'full') { rx -= 50; smallBtn(rx, 22, 'CHAT', () => Game.openChat(), { col: ch === 'hex' ? P.pink : '#cfe0ff' }); }
     // recent hex/spirit chat
     if (C.chat.length && (hex || !alive)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
     // action buttons (bottom-right)
     if (C.phase !== 'play') { drawDpad(); return; }
-    const cx = context(); const R = Math.min(22, Math.floor(G.H / 11));
-    const ax = G.W - R - 8, ay = G.H - R - 8;
+    const cx = context(); const R = Math.min(24, Math.floor(G.H / 9)); usePrompt(cx);
+    const ax = G.W - R - 8, ay = G.H - R - 14;
     const useLbl = cx.use ? ({ task: 'USE', switch: 'FLIP', melt: 'HOLD', cams: 'CAMS', bell: 'BELL', chute: 'CHUTE' }[cx.use.kind] || 'USE') : 'USE';
-    const useBtn = UI.action(ax, ay, R, useLbl, () => { if (cx.use && cx.use.kind !== 'melt') doUse(cx); }, { col: P.green, disabled: !cx.use, key: 'E' });
+    const useBtn = UI.action(ax, ay, R, useLbl, () => { if (cx.use && cx.use.kind !== 'melt') doUse(cx); }, { col: P.green, disabled: !cx.use, key: 'E', cap: cx.use ? useLbl : 'USE' });
     // meltdown hold
     const holdNow = cx.use && cx.use.kind === 'melt' && ((UI.held('use') && !UI.typing()) || UI.anyHeldIn(useBtn.x, useBtn.y, useBtn.w, useBtn.h));
     if (holdNow && !C.holding) { C.holding = true; Game.act('hold', { on: 1, btn: cx.use.btn }); }
     if (!holdNow && C.holding) { C.holding = false; Game.act('hold', { on: 0 }); }
     if (cx.use && cx.use.kind === 'melt' && C.holding) G.text('HOLDING!', ax, ay - R - 12, P.yellow, { al: 'c', ol: P.ink });
-    if (alive) UI.action(ax - R * 2 - 6, ay, R, 'RPT', () => Game.act('report'), { col: P.orange, disabled: !cx.report, key: 'R' });
+    if (alive) UI.action(ax - R * 2 - 10, ay, R, 'RPT', () => Game.act('report'), { col: P.orange, disabled: !cx.report, key: 'R', cap: 'REPORT' });
     if (alive && hex) {
-      UI.action(ax, ay - R * 2 - 6, R, 'HEX', () => Game.act('hex'), { col: P.purple, disabled: !cx.hex || mine.hexCd > 0, cd: mine.hexCd, key: 'Q' });
-      if (C.myType === 'shift') UI.action(ax - R * 2 - 6, ay - R * 2 - 6, R, mine.shiftT > 0 ? 'ON' : 'SHFT', () => { if (mine.shiftT <= 0 && mine.shiftCd <= 0) C.overlay = 'shift'; }, { col: P.teal, disabled: mine.shiftT > 0 || mine.shiftCd > 0, cd: mine.shiftT > 0 ? mine.shiftT : mine.shiftCd, key: 'F' });
-      if (C.myType === 'plant') UI.action(ax - R * 2 - 6, ay - R * 2 - 6, R, 'PLNT', () => Game.act('plant'), { col: P.pink, disabled: !cx.plant || mine.plantCd > 0 || mine.marking, cd: mine.marking ? 0 : mine.plantCd, key: 'F' });
-      UI.action(ax - R * 4 - 12, ay - R * 2 - 6, R, 'SAB', () => { C.overlay = 'sab'; }, { col: P.dred, disabled: !!(s.sab) || mine.sabCd > 0, cd: s.sab ? 0 : mine.sabCd, key: 'X' });
-      if (mine.marking) G.tiny('MARK ACTIVE', ax - R * 2 - 6, ay - R * 3 - 14, P.glow, 'c');
+      UI.action(ax, ay - R * 2 - 14, R, 'HEX', () => Game.act('hex'), { col: P.purple, disabled: !cx.hex || mine.hexCd > 0, cd: mine.hexCd, key: 'Q', cap: 'HEX' });
+      if (C.myType === 'shift') UI.action(ax - R * 2 - 10, ay - R * 2 - 14, R, mine.shiftT > 0 ? 'ON' : 'SHFT', () => { if (mine.shiftT <= 0 && mine.shiftCd <= 0) C.overlay = 'shift'; }, { col: P.teal, disabled: mine.shiftT > 0 || mine.shiftCd > 0, cd: mine.shiftT > 0 ? mine.shiftT : mine.shiftCd, key: 'F', cap: mine.shiftT > 0 ? 'DISGUISED' : 'SHIFT' });
+      if (C.myType === 'plant') UI.action(ax - R * 2 - 10, ay - R * 2 - 14, R, 'PLNT', () => Game.act('plant'), { col: P.pink, disabled: !cx.plant || mine.plantCd > 0 || mine.marking, cd: mine.marking ? 0 : mine.plantCd, key: 'F', cap: 'PLANT' });
+      UI.action(ax - R * 4 - 20, ay - R * 2 - 14, R, 'SAB', () => { C.overlay = 'sab'; }, { col: P.dred, disabled: !!(s.sab) || mine.sabCd > 0, cd: s.sab ? 0 : mine.sabCd, key: 'X', cap: 'SABOTAGE' });
+      if (mine.marking) G.tiny('MARK ACTIVE', ax - R * 2 - 10, ay - R * 3 - 22, P.glow, 'c');
     }
-    if (!alive && cx.rattle) UI.action(ax - R * 2 - 6, ay, R, 'RTL', () => Game.act('rattle', { prop: cx.rattle.id }), { col: P.sky, key: 'F' });
+    if (!alive && cx.rattle) UI.action(ax - R * 2 - 10, ay, R, 'RTL', () => Game.act('rattle', { prop: cx.rattle.id }), { col: P.sky, key: 'F', cap: 'RATTLE' });
     if (!alive && mine.rattled) G.tiny('RATTLE USED', ax - R * 2 - 6, ay + R + 1, P.grey, 'c');
     if (alive && cx.use && cx.use.kind === 'bell') G.tiny('BELLS LEFT: ' + mine.bells + (s.bell > 0 ? ' (WAIT ' + s.bell + 'S)' : ''), ax, ay - R - 8 - (hex ? R * 2 + 6 : 0), P.yellow, 'c');
     // keys
@@ -515,7 +574,7 @@ const Game = {};
 
   // ---------- MEETING ----------
   function cardLayout() {
-    const n = C.roster.length, cols = Math.max(2, Math.min(5, Math.floor((G.W - 8) / 86))), rows = Math.ceil(n / cols);
+    const n = C.roster.length, cols = Math.max(2, Math.min(5, Math.floor((G.W - 8) / 78))), rows = Math.ceil(n / cols);
     const top = 24, chatH = Math.max(40, Math.min(70, G.H - top - rows * 30 - 30)), ch = Math.min(30, Math.floor((G.H - top - chatH - 30) / rows));
     const cw = Math.floor((G.W - 8) / cols);
     return { cols, rows, cw, ch, top, chatH };
@@ -584,9 +643,17 @@ const Game = {};
     const bx = 30, by = G.H / 2 - 30; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx + 50, by + 20, 62, 26, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx + 50, by + 19, 60, 24, 0, 0, 7); ctx.fill();
     G.rect(bx + 20, by + 42, 60, 12, P.brown); G.rect(bx + 100, by + 10, 18, 10, P.dark); G.rect(bx + 112, by + 7, 6, 16, P.ink);
     if (E.id && E.look) {
-      const ft = Math.min(tt, 4), px = bx + 118 + ft * 90, py = by + 15 - ft * 40 + ft * ft * 14;
+      const ft = Math.min(tt, 1.3) + Math.max(0, Math.min(tt, 4.5) - 1.3) * 0.35, px = bx + 118 + ft * 90, py = by + 15 - ft * 40 + ft * ft * 14;
       if (tt < 0.4) { G.smoke(bx + 120 + camx, by + 15 + camy, '#fff', 3); }
-      ctx.save(); ctx.translate(Math.round(px), Math.round(py)); ctx.rotate(Math.floor(tt * 6) * Math.PI / 2); const c = G.charSprite(E.look, 0, 0); ctx.drawImage(c, -14, -18); ctx.restore();
+      const morphed = E.as && tt > 1.3; // after a moment in the air they transform
+      if (E.as && tt > 1.3 && !E.flashed) { E.flashed = true; Snd.sfx('hex'); G.smoke(px + camx, py + camy, E.as === 'hex' ? P.hexred : P.glow, 26); G.sparkle(px + camx, py + camy, P.yellow, 12); }
+      let c = morphed ? (E.as === 'hex' ? G.charSprite(Object.assign({}, E.look, { shape: 9 }), 0, 0) : G.bodySprite(E.piece || 0, E.look)) : G.charSprite(E.look, 0, 0);
+      const spin = morphed ? 0 : Math.floor(tt * 6) * Math.PI / 2, sc = morphed ? 3 : 1;
+      if (E.as && tt > 1.2 && tt < 1.45) { ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px) - 20, Math.round(py) - 26, 40, 44); }
+      else { ctx.save(); ctx.translate(Math.round(px), Math.round(py)); ctx.rotate(spin);
+        if (morphed && E.as === 'hex') { const r = redOutline(c); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(r, -c.width * sc / 2 + dx * sc, -c.height * sc / 2 + dy * sc, c.width * sc, c.height * sc); }
+        ctx.drawImage(c, -c.width * sc / 2, -c.height * sc / 2, c.width * sc, c.height * sc); ctx.restore(); }
+      if (morphed) G.text(E.as === 'hex' ? 'A HEXAGON!' : 'A ' + G.PIECES[E.piece || 0].toUpperCase() + '!', Math.round(px), Math.round(py) - 44, E.as === 'hex' ? P.hexred : P.white, { al: 'c', ol: P.ink });
     }
     G.updateFx(0, camx, camy);
     // text box (types out)

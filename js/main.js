@@ -263,6 +263,7 @@
   function boot() {
     G.resize(); G.buildFont();
     window.addEventListener('resize', () => { G.resize(); });
+    window.addEventListener('orientationchange', () => setTimeout(() => G.resize(), 300));
     Snd.setMusicVolume(UI.prof.musicVol); Snd.setSfxVolume(UI.prof.sfxVol);
     // tap-to-start (needed so browsers allow sound)
     requestAnimationFrame(frame);

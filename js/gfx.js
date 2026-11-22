@@ -9,14 +9,22 @@ const G = {};
   const ctx = buf.getContext('2d');
   G.ctx = ctx; G.buf = buf; G.disp = disp;
   G.W = 400; G.H = 240; G.scale = 2;
+  // Pick the biggest WHOLE-number pixel scale that still leaves about 340x190 game pixels.
+  // Phones held upright are shown sideways (rotated) so the game is always landscape and big enough to read.
+  G.rot = false;
   G.resize = function () {
-    const dpr = window.devicePixelRatio || 1;
-    const pw = Math.floor(window.innerWidth * dpr), ph = Math.floor(window.innerHeight * dpr);
-    let s = Math.max(1, Math.min(Math.floor(pw / 360), Math.floor(ph / 210)));
+    const dpr = window.devicePixelRatio || 1, vw = window.innerWidth, vh = window.innerHeight;
+    const touch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    G.rot = touch && vh > vw * 1.1;
+    const lw = G.rot ? vh : vw, lh = G.rot ? vw : vh; // logical landscape size in CSS px
+    const pw = Math.floor(lw * dpr), ph = Math.floor(lh * dpr);
+    const s = Math.max(1, Math.min(Math.floor(pw / 340), Math.floor(ph / 190)));
     G.scale = s; G.W = Math.floor(pw / s); G.H = Math.floor(ph / s);
     buf.width = G.W; buf.height = G.H;
     disp.width = G.W * s; disp.height = G.H * s;
-    disp.style.width = (G.W * s / dpr) + 'px'; disp.style.height = (G.H * s / dpr) + 'px';
+    G.cssW = G.W * s / dpr; G.cssH = G.H * s / dpr;
+    disp.style.width = G.cssW + 'px'; disp.style.height = G.cssH + 'px';
+    disp.style.transformOrigin = '0 0'; disp.style.transform = G.rot ? 'rotate(90deg) translate(0, -100%)' : '';
     ctx.imageSmoothingEnabled = false; dctx.imageSmoothingEnabled = false;
   };
   G.present = function () {
@@ -25,6 +33,7 @@ const G = {};
   };
   G.toInternal = function (cx, cy) {
     const r = disp.getBoundingClientRect();
+    if (G.rot) return [(cy - r.top) / r.height * G.W, (1 - (cx - r.left) / r.width) * G.H]; // rotated 90deg
     return [(cx - r.left) / r.width * G.W, (cy - r.top) / r.height * G.H];
   };
 
@@ -42,7 +51,7 @@ const G = {};
   G.HAIR_COLORS = [['Black', '#2a2433'], ['Brown', '#6b4130'], ['Blond', '#f2d06b'], ['Ginger', '#d8612f'], ['White', '#eeeeee'], ['Blue', '#4b7be6'], ['Pink', '#f07fb8'], ['Green', '#53b85d'], ['Purple', '#9358d6'], ['Red', '#d8333f']];
   G.SHAPES = ['Isosceles Triangle', 'Square', 'Circle', 'Pyramid', 'Cylinder', 'Cone', 'Donut', 'Diamond', 'Star', 'Hexagon', 'Capsule'];
   G.PATTERNS = ['Solid', 'Stripes', 'Polka dots', 'Checker'];
-  G.HAIRS = ['Elvis pompadour', 'Mohawk', 'Afro', 'Spiky anime', 'Pigtails', 'Mullet', 'Curly mop', 'Man-bun', 'Bald + shine', 'Long flowing'];
+  G.HAIRS = ['Elvis pompadour', 'Mohawk', 'Afro', 'Spiky anime', 'Pigtails', 'Mullet', 'Curly mop', 'Man-bun', 'Bald', 'Long flowing'];
   G.HATS = ['None', 'Crown', 'Top hat', 'Cowboy hat', 'Beanie', 'Chef hat', 'Propeller cap', 'Party hat', 'Viking helmet'];
   G.EYES = ['Normal', 'Sleepy', 'Angry brows', 'Sparkly', 'Sunglasses', 'Monocle', 'Cyclops'];
   G.EXTRAS = ['None', 'Mustache', 'Bow tie', 'Cape', 'Scarf', 'Backpack', 'Gold chain'];
@@ -235,9 +244,8 @@ const G = {};
         R(cx - 3, hy - 6, 6, 1, hc); R(cx - 1, hy - 5, 1, 1, hl); break;
       case 7: // man-bun
         R(cx - 4, hy - 2, 8, 2, hc); R(cx - 3, hy - 3, 6, 1, hc); R(cx - 2, hy - 7, 4, 4, hc); R(cx - 1, hy - 7, 2, 1, hl); R(cx - 2, hy - 4, 4, 1, hd); break;
-      case 8: // bald with shine
-        R(cx - 3 + (side ? fl : 0), hy + 1, 2, 1, '#fff'); R(cx - 2 + (side ? fl : 0), hy + 2, 1, 1, '#fff');
-        R(cx + 2, hy - 2, 1, 1, '#fff'); R(cx + 1, hy - 1, 3, 1, P.yellow); R(cx + 2, hy - 3, 1, 3, P.yellow); break;
+      case 8: // bald (no hair, no shine)
+        break;
       case 9: // long flowing
         R(cx - 5, hy - 3, 10, 4, hc); R(cx - 4, hy - 4, 8, 1, hc); R(cx - 3, hy - 3, 3, 1, hl);
         if (back) R(cx - 5, hy, 10, 10, hc); else { R(cx - 6, hy, 3, 10, hc); R(cx + 3, hy, 3, 10, hc); R(cx - 6, hy + 9, 2, 1, hd); R(cx + 4, hy + 9, 2, 1, hd); } break;
@@ -416,7 +424,7 @@ const G = {};
   const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   const visCache = {};
   G.visionMask = function (r) {
-    r = Math.max(8, Math.round(r)); if (visCache[r]) return visCache[r];
+    r = Math.max(8, Math.round(r / 4) * 4); if (visCache[r]) return visCache[r];
     const s = r * 2 + 4; const [c, x] = G.mk(s, s); const id = x.createImageData(s, s), d = id.data;
     const edge = Math.max(6, r * 0.22);
     for (let y = 0; y < s; y++) for (let xx = 0; xx < s; xx++) {

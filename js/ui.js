@@ -115,6 +115,7 @@ const UI = {};
     G.text(label, x, y - 4 + (pressed ? 2 : 0), P.white, { al: 'c', ol: P.ink });
     if (opts.key && !UI.isTouch) G.tiny(opts.key, x + r - 5, y - r - 2, P.yellow);
     if (opts.cd > 0) { G.text(String(Math.ceil(opts.cd)), x, y + 6, P.yellow, { al: 'c', ol: P.ink }); }
+    if (opts.cap) G.tiny(opts.cap, x, y + r + 4, opts.disabled ? P.grey : P.white, 'c');
     return b;
   };
 

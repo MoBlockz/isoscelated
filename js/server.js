@@ -14,8 +14,8 @@ const Server = {};
   Server.hexValid = (h, n) => h * 2 < n;
   const PIECE_AGE = 30; // seconds before a pawn becomes a different piece
   const HEX_RANGE = 26, REPORT_RANGE = 34, USE_RANGE = 26, MARK_RANGE = 22, ARM_TIME = 1.5;
-  const VIS = { shape: 92, hex: 108, dark: 38 };
-  let st = null, timer = null, peer = null, oldPeers = [];
+  const VIS = { shape: 184, hex: 216, dark: 76 }; // vision radius in pixels (doubled)
+  let st = null, timer = null, link = null;
   Server.active = () => !!st;
   Server.state = () => st;
 
@@ -35,9 +35,9 @@ const Server = {};
       startGame(true); opts.onReady('SOLO');
     } else {
       const nb = opts.bots | 0; for (let i = 0; i < nb; i++) addBot();
-      peer = Net.host({
-        onReady: (code, p) => { peer = p; st && (st.code = code, st.rosterDirty = true); opts.onReady(code); },
-        onConn: conn => handleConn(conn, peer),
+      link = Net.host({
+        onReady: code => { st && (st.code = code, st.rosterDirty = true); opts.onReady(code); },
+        onConn: (conn, code) => handleConn(conn, code),
         onError: m => { Server.stop(); opts.onError(m); }
       });
     }
@@ -51,24 +51,21 @@ const Server = {};
   Server.stop = function () {
     if (timer) clearInterval(timer); timer = null;
     if (st) for (const p of st.players.values()) if (p.conn) { try { p.conn.close(); } catch (e) { } }
-    for (const pp of [peer].concat(oldPeers)) if (pp) { try { pp._noReconnect = true; pp.destroy(); } catch (e) { } }
-    peer = null; oldPeers = []; st = null;
+    if (link) link.close(); link = null; st = null;
   };
   Server.newCode = function () {
     if (!st || st.practice || st.phase !== 'lobby') return;
-    // keep existing connections alive on the old peer, but stop it accepting new players
-    if (peer) { peer._noReconnect = true; try { peer.disconnect(); } catch (e) { } oldPeers.push(peer); }
-    st.code = '.....'; st.rosterDirty = true;
-    peer = Net.host({ onReady: (code, p) => { peer = p; if (st) { st.code = code; st.rosterDirty = true; notice('h', 'New code: ' + code); } }, onConn: c => handleConn(c, peer), onError: m => notice('h', m) });
+    if (!link) return; st.code = '.....'; st.rosterDirty = true;
+    link.newCode(code => { if (st) { st.code = code; st.rosterDirty = true; notice('h', 'New code: ' + code); } });
   };
 
-  function handleConn(conn, fromPeer) {
+  function handleConn(conn, viaCode) {
     let pid = null;
     conn.on('data', msg => {
       if (!st) return;
       if (!pid) {
         if (!msg || msg.t !== 'hello') return;
-        if (fromPeer !== peer) { conn.send({ t: 'err', m: 'No lobby with that code.' }); setTimeout(() => conn.close(), 300); return; }
+        if (viaCode !== st.code) { conn.send({ t: 'err', m: 'No lobby with that code.' }); setTimeout(() => conn.close(), 300); return; }
         if (st.banned.has(msg.token)) { conn.send({ t: 'err', m: 'You were removed from this lobby.' }); setTimeout(() => conn.close(), 300); return; }
         if (st.phase !== 'lobby') { conn.send({ t: 'err', m: 'Game in progress, wait for the next round.' }); setTimeout(() => conn.close(), 300); return; }
         if (st.players.size >= 20) { conn.send({ t: 'err', m: 'Lobby full.' }); setTimeout(() => conn.close(), 300); return; }
@@ -146,7 +143,7 @@ const Server = {};
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   function visionOf(p) {
     if (!p.alive) return 9999; if (st.phase !== 'play') return 9999;
-    if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 14 : 0);
+    if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 28 : 0);
     return st.sab.k === 'lights' ? VIS.dark : VIS.shape;
   }
   function canSee(viewer, x, y, extra) {
@@ -346,7 +343,10 @@ const Server = {};
     }
     const tally = {}; for (const p of alive()) tally[p.id] = p.vote; // revealed after time is up
     M.result = { id: ej ? ej.id : null, text, counts, skips }; M.stage = 'result'; M.t = 8;
-    sendAll({ t: 'e', k: 'eject', id: ej ? ej.id : null, text, counts, skips });
+    // what they turn into while flying: a HEXAGON if they were a Hexagoner, otherwise a chess piece.
+    // (Only shown when the host's 'Reveal role on eject' setting is on, so it never leaks a secret.)
+    const as = ej && st.settings.reveal !== 'off' ? (ej.role === 'hex' ? 'hex' : 'piece') : null;
+    sendAll({ t: 'e', k: 'eject', id: ej ? ej.id : null, text, counts, skips, as, piece: Math.floor(Math.random() * 6) });
     if (ej) { ej.alive = false; ej.knownDead = true; ej.ejected = true; }
   }
   function endMeeting() {
@@ -523,6 +523,7 @@ const Server = {};
     return { t: 'r', code: st.code, phase: st.phase, settings: st.settings, list, practice: st.practice };
   }
   function snapshots() {
+    st.snapN = (st.snapN || 0) + 1;
     const S = st.settings, bar = taskBar();
     const al = alive(), livingShapes = al.filter(p => p.role === 'shape').length;
     const markOf = {}; for (const k of st.marks) markOf[k.target] = 1;
@@ -550,7 +551,8 @@ const Server = {};
       if (st.phase === 'reveal') snap.tm = Math.ceil(st.phaseT);
       if (st.phase === 'over') snap.tm = Math.ceil(st.phaseT);
       const rt = Object.keys(st.rattle); if (rt.length) snap.rt = rt.map(Number);
-      send(v.id, snap);
+      // relayed players get 10 updates a second (2 of every 3) to go easy on the free relay
+      if (!(v.conn && v.conn.relay && st.snapN % 3 === 2)) send(v.id, snap);
     }
     st.rosterDirty = false;
   }
