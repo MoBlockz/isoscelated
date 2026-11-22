@@ -39,9 +39,9 @@ const World = {};
   ];
   World.quickText = (q, name) => { const e = World.QUICK[q]; if (!e) return ''; return e.e ? '' : e.t.replace('{N}', name || '???'); };
 
-  function makeMap(w, h) { return { w, h, tiles: new Uint8Array(w * h), room: new Int8Array(w * h).fill(-1), solid: new Uint8Array(w * h), rooms: [], props: [], stations: [], doors: {}, chutes: [], cams: [], seats: [] }; }
+  function makeMap(w, h) { return { w, h, tiles: new Uint8Array(w * h), room: new Int8Array(w * h).fill(-1), solid: new Uint16Array(w * h), rooms: [], props: [], stations: [], doors: {}, chutes: [], cams: [], seats: [] }; }
   function carve(m, x, y, w, h, roomIdx) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { m.tiles[j * m.w + i] = 1; if (roomIdx != null) m.room[j * m.w + i] = roomIdx; } }
-  function prop(m, k, x, y, w, h, solid, extra) { const p = Object.assign({ id: m.props.length, k, x, y, w: w || 1, h: h || 1, solid: solid !== false }, extra || {}); m.props.push(p); if (p.solid) for (let j = y; j < y + p.h; j++) for (let i = x; i < x + p.w; i++) m.solid[j * m.w + i] = 1; return p; }
+  function prop(m, k, x, y, w, h, solid, extra) { const p = Object.assign({ id: m.props.length, k, x, y, w: w || 1, h: h || 1, solid: solid !== false }, extra || {}); m.props.push(p); if (p.solid) for (let j = y; j < y + p.h; j++) for (let i = x; i < x + p.w; i++) m.solid[j * m.w + i] = p.id + 1; return p; } // solid = which prop (id+1)
   function station(m, kind, tx, ty, extra) { const s = Object.assign({ kind, x: tx * T + 8, y: ty * T + 8, room: m.room[ty * m.w + tx] }, extra || {}); m.stations.push(s); return s; }
 
   World.ROOM_DEFS = [
@@ -124,12 +124,32 @@ const World = {};
   World.blocked = function (m, px, py, jam) {
     const tx = Math.floor(px / T), ty = Math.floor(py / T);
     if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return true;
-    const k = ty * m.w + tx; if (!m.tiles[k] || m.solid[k]) return true;
+    const k = ty * m.w + tx; if (!m.tiles[k]) return true;
+    if (m.solid[k] && propPixel(m.props[m.solid[k] - 1], px, py)) return true; // only where the prop is actually drawn
     if (jam != null && m.doors[jam] && m.doors[jam].indexOf(k) >= 0) return true;
     return false;
   };
+  // Pixel-accurate prop collision: a prop only blocks where its sprite has visible pixels,
+  // so empty corners (round table, gears, boiler, desk...) are no longer invisible walls.
+  function propMask(p) {
+    if (p.mask !== undefined) return p.mask;
+    p.mask = null;
+    try {
+      const sp = World.propSprite(p), w = sp.width, h = sp.height, d = sp.getContext('2d').getImageData(0, 0, w, h).data;
+      const mk = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) mk[i] = d[i * 4 + 3] > 40 ? 1 : 0;
+      p.mask = { w, h, ox: p.x * T - 1, oy: p.y * T - (p.k === 'blimp' ? 6 : 0), d: mk };
+    } catch (e) { p.mask = null; } // no canvas (e.g. tests in Node): fall back to the whole tile being solid
+    return p.mask;
+  }
+  function propPixel(p, px, py) {
+    if (!p) return true; const m = propMask(p); if (!m) return true;
+    const x = Math.floor(px - m.ox), y = Math.floor(py - m.oy);
+    if (x < 0 || y < 0 || x >= m.w || y >= m.h) return false;
+    return !!m.d[y * m.w + x];
+  }
   // feet box ~10x5
-  World.hit = function (m, x, y, jam) { return World.blocked(m, x - 5, y - 4, jam) || World.blocked(m, x + 5, y - 4, jam) || World.blocked(m, x - 5, y + 1, jam) || World.blocked(m, x + 5, y + 1, jam); };
+  const HX = [-5, -2.5, 0, 2.5, 5], HY = [-4, -1.5, 1];
+  World.hit = function (m, x, y, jam) { for (const dy of HY) for (const dx of HX) if (World.blocked(m, x + dx, y + dy, jam)) return true; return false; };
   World.move = function (m, e, dx, dy, ghost, jam) {
     if (ghost) { e.x = Math.max(8, Math.min(m.w * T - 8, e.x + dx)); e.y = Math.max(16, Math.min(m.h * T - 4, e.y + dy)); return; }
     if (World.hit(m, e.x, e.y, jam)) { // stuck inside something? pop out to the nearest free spot
