@@ -13,6 +13,8 @@ const Game = {};
     plant: 'PLANT (F): secretly curse a Shape. The next Shape they get close to is zapped FROM them!'
   };
   Game.TYPE_NAME = TYPE_NAME; Game.TYPE_INFO = TYPE_INFO;
+  const SQ_INFO = 'You are a Shape with super sight: you see who is marked (tagged), a red hexagon over disguised Shapeshifters, you keep your vision in Lights Out, and you can read Spirit chat.';
+  Game.SQ_INFO = SQ_INFO;
   let C = null; Game.C = () => C;
   Game.inSession = () => !!C;
 
@@ -118,7 +120,8 @@ const Game = {};
       case 'notice': toast(e.text, e.host ? P.yellow : null); if (e.host) Snd.sfx('chat'); break;
       case 'oops': if (performance.now() - C.oopsT > 2500) oops(); break;
       case 'reveal':
-        if (e.quiet) { UI.say(e.role === 'hex' ? 'You are now a HEXAGONER: ' + TYPE_NAME[e.type] + '. ' + TYPE_INFO[e.type] : 'You are now a SHAPE.', { auto: 3 }); C.myRole = e.role; C.myType = e.type; break; }
+        C.mySq = !!e.sq;
+        if (e.quiet) { UI.say(e.role === 'hex' ? 'You are now a HEXAGONER: ' + TYPE_NAME[e.type] + '. ' + TYPE_INFO[e.type] : e.sq ? 'You are now the SQUAREFF! ' + SQ_INFO : 'You are now a SHAPE.', { auto: 3 }); C.myRole = e.role; C.myType = e.type; break; }
         C.reveal = { role: e.role, type: e.type, mates: e.mates, t: 0, t0: performance.now() }; C.myRole = e.role; C.myType = e.type; C.chat = []; Snd.sfx('reveal');
         if (e.practice) C.reveal = null;
         break;
@@ -281,7 +284,7 @@ const Game = {};
     C.toasts.forEach(x => x.t -= dt); C.toasts = C.toasts.filter(x => x.t > 0);
     // vision radius (animated)
     const sabK = C.snap && C.snap.sab && C.snap.sab.k;
-    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 122 : 108) : (sabK === 'lights' ? 38 : 92);
+    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 122 : 108) : (sabK === 'lights' && !C.mySq ? 38 : 92);
     C.vis += (target - C.vis) * Math.min(1, dt * 3);
 
     drawWorld(dt, t);
@@ -305,12 +308,16 @@ const Game = {};
     // shadow
     ctx.fillStyle = 'rgba(20,10,30,0.28)'; ctx.fillRect(sx - 7, sy - 1, 14, 3); ctx.fillRect(sx - 5, sy - 2, 10, 5);
     if (opts.hexmate) { const c = G.charSprite(look, dir === 2 ? 3 : dir, frame), r = redOutline(c); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) { if (dir === 2) { ctx.save(); ctx.translate(sx + 14 + dx, 0); ctx.scale(-1, 1); ctx.drawImage(r, 0, sy - 33 + dy); ctx.restore(); } else ctx.drawImage(r, sx - 14 + dx, sy - 33 + dy); } }
-    let alpha = null; if (opts.spirit) alpha = 0.35 + 0.25 * (Math.sin(performance.now() / 90 + x) > 0.6 ? 0 : 1);
-    const bob = opts.spirit ? Math.round(Math.sin(performance.now() / 300 + x) * 2) - 3 : 0;
-    G.drawChar(look, dir, frame, sx, sy + bob, alpha);
+    let alpha = null; if (opts.spirit) alpha = 0.45 + 0.25 * (Math.sin(performance.now() / 90 + x) > 0.6 ? 0 : 1);
+    // Spirits FLY: no walking, they float up and down with a wavy ghost tail
+    const bob = opts.spirit ? Math.round(Math.sin(performance.now() / 260 + x * 0.1) * 3) - 7 : 0;
+    if (opts.spirit) G.drawGhost(look, dir, sx, sy + bob, alpha, performance.now() / 1000 + x * 0.01);
+    else G.drawChar(look, dir, frame, sx, sy + bob, alpha);
     let ty = sy - 40 + bob; if (look.hat === 2 || look.hair === 1 || look.hair === 3) ty -= 3;
     if (opts.hexmate) { G.tiny('HEX', sx, ty - 7, P.hexred, 'c'); }
     if (opts.marked) { const by = ty - 9 + Math.round(Math.sin(performance.now() / 200) * 1.5); const c = (performance.now() / 150 | 0) % 2 ? P.glow : P.purple; G.rect(sx - 2, by, 5, 5, c); G.rect(sx - 3, by + 1, 7, 3, c); G.rect(sx - 1, by + 1, 3, 3, '#fff'); G.rect(sx, by + 2, 1, 1, P.dpurple); }
+    if (opts.disguised) { // the Squareff sees a bold red hexagon over a disguised Shapeshifter
+      const hy = ty - 14 + Math.round(Math.sin(performance.now() / 180) * 1.5), rows = [3, 5, 7, 9, 9, 7, 5, 3]; rows.forEach((w, i) => { G.rect(sx - Math.ceil(w / 2) - 1, hy + i, w + 2, 1, P.ink); }); rows.forEach((w, i) => { if (i > 0 && i < 7) G.rect(sx - Math.ceil(w / 2) + 1, hy + i, w - 2, 1, P.hexred); }); G.rect(sx - 1, hy + 2, 1, 1, '#fff'); }
     if (name) G.tiny(name, sx, ty, opts.spirit ? '#bcd7ff' : (opts.me ? P.yellow : P.white), 'c');
   }
   function drawBubble(id, x, y) {
@@ -334,7 +341,7 @@ const Game = {};
     const iAmSpirit = C.phase === 'play' && !C.mine.alive;
     for (const [id, o] of C.others) {
       if (!o.vis) continue; const spirit = !!(o.fl & 1) && C.phase !== 'lobby';
-      list.push({ y: o.y, f: () => { drawPlayer(lookOf(o.disp), nameOf(o.disp), o.x, o.y, o.dir, o.anim, o.mv, { spirit, hexmate: !!(o.fl & 2), marked: !!(o.fl & 4) }); } });
+      list.push({ y: o.y, f: () => { drawPlayer(lookOf(o.disp), nameOf(o.disp), o.x, o.y, o.dir, o.anim, o.mv, { spirit, hexmate: !!(o.fl & 2), marked: !!(o.fl & 4), disguised: !!(o.fl & 8) }); } });
     }
     const myDisp = C.mine.shiftAs || C.id;
     list.push({ y: me.y, f: () => drawPlayer(lookOf(myDisp), nameOf(myDisp), me.x, me.y, me.dir, me.anim, me.mv, { me: true, spirit: iAmSpirit }) });
@@ -492,8 +499,8 @@ const Game = {};
   function drawPlayHud(dt, t) {
     const s = C.snap; if (!s) return; const mine = C.mine, hex = C.myRole === 'hex', alive = !!mine.alive;
     // ---- role badge (top-left) ----
-    const roleTxt = !alive ? 'SPIRIT' : hex ? 'HEXAGONER' : 'SHAPE', roleCol = !alive ? '#5d7fd0' : hex ? P.dred : P.blue;
-    const goal = !alive ? 'Keep doing chores! Chat with Spirits.' : hex ? (TYPE_NAME[C.myType] || '') + ': hex Shapes, don\'t get caught' : 'Do chores. Find the Hexagoners!';
+    const sq = C.mySq && !hex, roleTxt = !alive ? 'SPIRIT' : hex ? 'HEXAGONER' : sq ? 'SQUAREFF' : 'SHAPE', roleCol = !alive ? '#5d7fd0' : hex ? P.dred : sq ? '#b8860b' : P.blue;
+    const goal = !alive ? 'Keep doing chores! Chat with Spirits.' : hex ? (TYPE_NAME[C.myType] || '') + ': hex Shapes, don\'t get caught' : sq ? 'You see marks, disguises + Spirit chat' : 'Do chores. Find the Hexagoners!';
     const rw = roleTxt.length * 8 + 12; G.rect(3, 3, rw + 2, 15, P.ink); G.rect(4, 4, rw, 13, roleCol); G.text(roleTxt, 10, 7, P.white);
     // ---- chore bar (top-centre) ----
     const bw = Math.max(90, Math.min(200, G.W - rw - 150)), bx = Math.floor(Math.max(rw + 12, G.W / 2 - bw / 2));
@@ -537,7 +544,7 @@ const Game = {};
     rx -= 58; smallBtn(rx, 22, 'QUICK', () => { C.overlay = 'quick'; });
     const ch = chatChannel();
     // recent hex/spirit chat
-    if (C.chat.length && (hex || !alive)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
+    if (C.chat.length && (hex || !alive || C.mySq)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
     // action buttons (bottom-right)
     if (C.phase !== 'play') { drawDpad(); return; }
     const cx = context(); const R = Math.min(24, Math.floor(G.H / 9)); usePrompt(cx);
@@ -687,7 +694,8 @@ const Game = {};
       if (R.mates.length) { G.text('Your team:', tx, y, P.pink); y += 11; R.mates.forEach(m => { G.text(nameOf(m.id) + ' - ' + TYPE_NAME[m.type], tx, y, P.hexred); y += 10; }); }
       else { G.text('You are the only Hexagoner!', tx, y, P.pink); }
     } else {
-      G.wrap('Finish your chores to power the escape blimp. Find the Hexagoners and vote them out!', maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; });
+      if (C.mySq) { G.text('SPECIAL: THE SQUAREFF', tx, y, P.yellow); y += 13; G.wrap(SQ_INFO, maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; }); y += 2; }
+      else G.wrap('Finish your chores to power the escape blimp. Find the Hexagoners and vote them out!', maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; });
       const nh = C.settings.hexCount; y += 6; G.text(nh + ' Hexagoner' + (nh > 1 ? 's are' : ' is') + ' among us...', tx, y, P.hexred);
     }
   }
@@ -706,7 +714,7 @@ const Game = {};
       const x = 4 + (i % cols) * cw, y = 54 + Math.floor(i / cols) * chh;
       ctx.save(); ctx.beginPath(); ctx.rect(x, y, 22, chh - 1); ctx.clip(); ctx.drawImage(G.charSprite(p.look, 0, 0), x - 3, y - 8); ctx.restore();
       G.text(p.name, x + 24, y + 1, p.role === 'hex' ? P.hexred : P.sky);
-      G.tiny(p.role === 'hex' ? 'HEX: ' + TYPE_NAME[p.type] : 'SHAPE', x + 24, y + 10, p.role === 'hex' ? P.pink : '#bcd7ff');
+      G.tiny(p.role === 'hex' ? 'HEX: ' + TYPE_NAME[p.type] : p.sq ? 'SHAPE: SQUAREFF' : 'SHAPE', x + 24, y + 10, p.role === 'hex' ? P.pink : p.sq ? P.yellow : '#bcd7ff');
       const st = p.stats; G.tiny((p.role === 'hex' ? 'HEX ' + st.hexes + ' FRAME ' + st.framed + ' SHIFT ' + st.shifts : 'TASKS ' + st.tasks) + ' GOOD VOTES ' + st.votes, x + 24, y + 17, P.light);
     });
     const host = C.mode === 'host';
@@ -774,7 +782,7 @@ const Game = {};
       const b = panel(220, 80, 'LEAVE?'); G.text(C.mode === 'host' ? 'Everyone will be sent home.' : 'Leave this lobby?', b.x + 10, b.y + 26, P.ink);
       UI.button(b.x + 10, b.y + 48, 90, 20, 'LEAVE', () => Game.toMenu(), { col: P.pink }); UI.button(b.x + b.w - 100, b.y + 48, 90, 20, 'STAY', () => closeOverlay()); return;
     }
-    if (o === 'pause') return Game.drawPause(panel(240, C.practice ? 230 : 150, C.practice ? 'PRACTICE MENU' : 'MENU'));
+    if (o === 'pause') return Game.drawPause(panel(240, C.practice ? 250 : 150, C.practice ? 'PRACTICE MENU' : 'MENU'));
   }
   // ---------- QUICK CHAT panel ----------
   const QTABS = [['say', 'SAY'], ['agree', 'AGREE'], ['deny', 'DISAGREE'], ['who', 'WHO?'], ['emote', ':)']];

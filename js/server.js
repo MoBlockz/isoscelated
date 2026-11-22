@@ -7,9 +7,13 @@ const Server = {};
   const T = World.T;
   const DEF = {
     hexCount: 1, types: 'random', allowed: { classic: true, shift: true, plant: true }, hexCd: 30, plantCd: 30, markFade: 60, shiftDur: 20, shiftCd: 30,
-    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick'
+    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick', squareff: 1
   };
   Server.DEF = DEF;
+  // Fair Fisher-Yates shuffle with crypto randomness: every player has exactly the same chance.
+  function rnd(n) { if (window.crypto && crypto.getRandomValues) { const a = new Uint32Array(1), lim = Math.floor(0x100000000 / n) * n; let x; do { crypto.getRandomValues(a); x = a[0]; } while (x >= lim); return x % n; } return Math.floor(Math.random() * n); }
+  function shuffle(arr) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  Server._shuffle = shuffle;
   Server.suggestHex = n => n <= 6 ? 1 : n <= 11 ? 2 : n <= 16 ? 3 : 4;
   Server.hexValid = (h, n) => h * 2 < n;
   const PIECE_AGE = 30; // seconds before a pawn becomes a different piece
@@ -85,7 +89,7 @@ const Server = {};
 
   function sanitizeLook(l) {
     l = l || {}; const c = (v, n) => Math.max(0, Math.min(n - 1, v | 0));
-    return { shape: c(l.shape, 11), color: c(l.color, 18), pattern: c(l.pattern, 4), hair: c(l.hair, 10), hairColor: c(l.hairColor, 10), hat: c(l.hat, 9), eyes: c(l.eyes, 7), extra: c(l.extra, 7) };
+    return { shape: c(l.shape, G.SHAPES.length), color: c(l.color, 18), pattern: c(l.pattern, 4), hair: c(l.hair, 10), hairColor: c(l.hairColor, 10), hat: c(l.hat, 9), eyes: c(l.eyes, G.EYES.length), extra: c(l.extra, G.EXTRAS.length), acc: c(l.acc, 18) };
   }
   function uniqueLook(p) { // no two players share exact colour AND shape
     const clash = () => { for (const q of st.players.values()) if (q !== p && q.look.shape === p.look.shape && q.look.color === p.look.color) return true; return false; };
@@ -149,6 +153,7 @@ const Server = {};
   function visionOf(p) {
     if (!p.alive) return 9999; if (st.phase !== 'play') return 9999;
     if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 14 : 0);
+    if (p.sq) return VIS.shape; // the Squareff isn't affected by Lights Out
     return st.sab.k === 'lights' ? VIS.dark : VIS.shape;
   }
   function canSee(viewer, x, y, extra) {
@@ -168,17 +173,20 @@ const Server = {};
     st.map = World.buildWorkshop();
     st.bodies = []; st.marks = []; st.sab = { k: null }; st.sabCd = 15; st.meeting = null; st.over = null; st.rattle = {}; st.matchT = S.matchTime * 60; st.bellCd = 15;
     // roles: completely random each round
-    const sh = ps.slice().sort(() => Math.random() - .5);
+    const sh = shuffle(ps);
     const hexIds = new Set(practice ? [] : sh.slice(0, S.hexCount).map(p => p.id));
     let pool = ['classic', 'shift', 'plant'];
     if (S.types === 'classic') pool = ['classic']; else if (S.types === 'custom') { pool = pool.filter(k => S.allowed[k]); if (!pool.length) pool = ['classic']; }
+    const bag = shuffle(pool); // random, but different types first
+    const shapesOnly = sh.filter(p => !hexIds.has(p.id)), sqId = !practice && S.squareff && shapesOnly.length >= 2 ? shapesOnly[rnd(shapesOnly.length)].id : null;
     ps.forEach((p, i) => {
+      p.sq = p.id === sqId;
       p.alive = true; p.left = false; p.knownDead = false; p.role = hexIds.has(p.id) ? 'hex' : 'shape';
-      p.type = p.role === 'hex' ? pool[Math.floor(Math.random() * pool.length)] : null;
+      p.type = p.role === 'hex' ? (bag.length ? bag.pop() : pool[rnd(pool.length)]) : null;
       p.hexCd = 15; p.plantCd = 15; p.shiftCd = 15; p.shiftT = 0; p.shiftAs = null; p.bells = S.bells; p.rattled = false; p.vote = null; p.camOn = false; p.hold = -1;
       p.suspect = null; p.sawAt = 0; p.goal = null; p.aiBtn = null; p.aiSaid = 0;
       p.stats = z(); p.muteMatch = p.strikes >= 6 ? p.muteMatch : false; p.ready = false;
-      const keys = World.TASK_KEYS.slice().sort(() => Math.random() - .5).slice(0, Math.min(S.tasks, World.TASK_KEYS.length));
+      const keys = shuffle(World.TASK_KEYS).slice(0, Math.min(S.tasks, World.TASK_KEYS.length));
       p.tasks = keys.map(k => ({ k, done: false }));
       const seat = st.map.seats[i % 20]; teleport(p, seat[0], seat[1]);
     });
@@ -187,15 +195,15 @@ const Server = {};
     st.rosterDirty = true;
     for (const p of ps) {
       const mates = p.role === 'hex' ? ps.filter(q => q.role === 'hex' && q !== p).map(q => ({ id: q.id, type: q.type })) : [];
-      send(p.id, { t: 'e', k: 'reveal', role: p.role, type: p.type, mates, practice: !!practice });
+      send(p.id, { t: 'e', k: 'reveal', role: p.role, type: p.type, sq: p.sq ? 1 : 0, mates, practice: !!practice });
     }
     return null;
   }
-  Server.practiceRole = function (type) { // practice: become a Shape or a Hexagoner type
-    if (!st || !st.practice) return; const p = st.players.get('h');
+  Server.practiceRole = function (type) { // practice: become a Shape, the Squareff or a Hexagoner type
+    if (!st || !st.practice) return; const p = st.players.get('h'); p.sq = type === 'squareff'; if (p.sq) type = null;
     if (!p.alive) { p.alive = true; st.bodies = st.bodies.filter(b => b.id !== 'h'); }
     p.role = type ? 'hex' : 'shape'; p.type = type || null; p.hexCd = 0; p.plantCd = 0; p.shiftCd = 0; p.shiftT = 0; p.shiftAs = null; st.marks = [];
-    send('h', { t: 'e', k: 'reveal', role: p.role, type: p.type, mates: [], practice: true, quiet: true });
+    send('h', { t: 'e', k: 'reveal', role: p.role, type: p.type, sq: p.sq ? 1 : 0, mates: [], practice: true, quiet: true });
   };
   Server.practiceReset = function () { // revive dummies
     if (!st || !st.practice) return; st.bodies = []; st.marks = []; st.sab = { k: null }; st.sabCd = 0;
@@ -346,14 +354,14 @@ const Server = {};
       text = ej.name + ' was ejected out of the blimp cannon!';
       const R = st.settings.reveal;
       if (R === 'hex') text += ej.role === 'hex' ? ' ' + ej.name + ' was a Hexagoner.' : ' ' + ej.name + ' was not a Hexagoner.';
-      else if (R === 'full') text += ej.role === 'hex' ? ' ' + ej.name + ' was a Hexagoner: ' + typeName(ej.type) + '.' : ' ' + ej.name + ' was a Shape.';
+      else if (R === 'full') text += ej.role === 'hex' ? ' ' + ej.name + ' was a Hexagoner: ' + typeName(ej.type) + '.' : ' ' + ej.name + ' was a Shape' + (ej.sq ? ': the SQUAREFF!' : '.');
       if (R !== 'off') { const h = alive().filter(q => q.role === 'hex' && q !== ej).length; text += ' ' + h + ' Hexagoner' + (h === 1 ? '' : 's') + ' remain' + (h === 1 ? 's.' : '.'); }
     }
     const tally = {}; for (const p of alive()) tally[p.id] = p.vote; // revealed after time is up
     M.result = { id: ej ? ej.id : null, text, counts, skips }; M.stage = 'result'; M.t = 8;
     // what they turn into while flying: a HEXAGON if they were a Hexagoner, otherwise a chess piece.
     // (Only shown when the host's 'Reveal role on eject' setting is on, so it never leaks a secret.)
-    const as = ej && st.settings.reveal !== 'off' ? (ej.role === 'hex' ? 'hex' : 'piece') : null;
+    const as = ej && st.settings.reveal !== 'off' && ej.role === 'hex' ? 'hex' : null; // Hexagoners become a hexagon; Shapes stay as themselves
     sendAll({ t: 'e', k: 'eject', id: ej ? ej.id : null, text, counts, skips, as, piece: 0 }); // an ejected Shape becomes a PAWN
     if (ej) { ej.alive = false; ej.knownDead = true; ej.ejected = true; }
   }
@@ -378,7 +386,7 @@ const Server = {};
   }
   function gameOver(winner, reason) {
     st.phase = 'over'; st.phaseT = 60; st.meeting = null;
-    const players = [...st.players.values()].map(p => ({ id: p.id, name: p.name, look: p.look, role: p.role, type: p.type, alive: p.alive, left: p.left, stats: p.stats }));
+    const players = [...st.players.values()].map(p => ({ id: p.id, name: p.name, look: p.look, role: p.role, type: p.type, sq: p.sq ? 1 : 0, alive: p.alive, left: p.left, stats: p.stats }));
     st.over = { winner, reason, players }; st.rosterDirty = true;
     sendAll({ t: 'e', k: 'over', winner, reason, players });
   }
@@ -437,7 +445,7 @@ const Server = {};
     if (st.phase === 'meeting' && whoId && /It's|sus|Vote/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) + 1; }
     if (st.phase === 'meeting' && whoId && /trust/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) - 1; }
     if (live && team && p.role === 'hex' && p.alive) { msg.ch = 'hex'; sendAll(msg, x => x.role === 'hex' && x.alive); return; } // Hexagoner team only
-    if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive); return; } // Spirits only
+    if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive || (x.sq && x.alive)); return; } // Spirits (+ the Squareff can listen)
     if (st.phase !== 'play') { sendAll(msg); return; }
     sendAll(msg, x => !x.alive || x === p || canSee(x, p.x, p.y)); // in play: only people who can see you
   }
@@ -647,11 +655,12 @@ const Server = {};
         if (!ok) continue;
         let fl = p.alive ? 0 : 1;
         if (v.role === 'hex' && p.role === 'hex' && p !== v && st.phase === 'play') fl |= 2;
-        if (v.role === 'hex' && markOf[p.id] && st.phase === 'play') fl |= 4;
+        if ((v.role === 'hex' || v.sq) && markOf[p.id] && st.phase === 'play') fl |= 4; // marks: Hexagoners + Squareff
+        if (v.sq && p.shiftAs && st.phase === 'play') fl |= 8; // the Squareff sees a hexagon over disguised Shapeshifters
         ps.push([p.id, Math.round(p.x), Math.round(p.y), p.dir, p.mv, p.shiftAs || p.id, fl]);
       }
       const bodies = st.bodies.filter(b => !v.alive || st.phase !== 'play' || Math.hypot(b.x - v.x, b.y - v.y) <= vr + 30 || (v.camOn && st.map.cams.some(c => Math.hypot(b.x - c.x, b.y - c.y) < 110))).map(b => [b.id, b.obj, b.x, b.y, b.rep ? 1 : 0]);
-      const me = { tp: [v.tpSeq, Math.round(v.x), Math.round(v.y)], alive: v.alive ? 1 : 0, tasks: v.tasks.map(t => [t.k, t.done ? 1 : 0]), bells: v.bells, rattled: v.rattled ? 1 : 0, cam: v.camOn ? 1 : 0 };
+      const me = { sq: v.sq ? 1 : 0, tp: [v.tpSeq, Math.round(v.x), Math.round(v.y)], alive: v.alive ? 1 : 0, tasks: v.tasks.map(t => [t.k, t.done ? 1 : 0]), bells: v.bells, rattled: v.rattled ? 1 : 0, cam: v.camOn ? 1 : 0 };
       if (v.role === 'hex') { me.role = 'hex'; me.type = v.type; me.hexCd = +v.hexCd.toFixed(1); me.plantCd = +v.plantCd.toFixed(1); me.shiftCd = +v.shiftCd.toFixed(1); me.shiftT = +v.shiftT.toFixed(1); me.shiftAs = v.shiftAs; me.sabCd = +st.sabCd.toFixed(1); me.marking = st.marks.some(k => k.by === v.id) ? 1 : 0; }
       const snap = { t: 's', ph: st.phase, p: ps, b: bodies, me, bar: +bar.toFixed(3), mt: S.matchTime && !st.practice ? Math.max(0, Math.ceil(st.matchT)) : -1, bell: Math.ceil(st.bellCd || 0), sd: (st.phase === 'play' && livingShapes <= 3 && !st.practice) ? 1 : 0 };
       if (st.sab.k) snap.sab = { k: st.sab.k, t: st.sab.t != null ? Math.ceil(st.sab.t) : 0, sw: st.sab.sw, hold: st.sab.hold ? st.sab.hold.map(x => x ? 1 : 0) : null, room: st.sab.room };

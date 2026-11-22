@@ -49,12 +49,12 @@ const G = {};
     ['Sky', '#6ec3f0'], ['Blue', '#4471d9'], ['Navy', '#2c3f8f'], ['Purple', '#8b55c9'], ['Pink', '#f08bbf'], ['Rose', '#c94f7c'],
     ['Brown', '#8a5a3b'], ['Tan', '#d8a86c'], ['White', '#f2eee8'], ['Grey', '#8f8a99'], ['Black', '#3a3346'], ['Gold', '#f4b93c']];
   G.HAIR_COLORS = [['Black', '#2a2433'], ['Brown', '#6b4130'], ['Blond', '#f2d06b'], ['Ginger', '#d8612f'], ['White', '#eeeeee'], ['Blue', '#4b7be6'], ['Pink', '#f07fb8'], ['Green', '#53b85d'], ['Purple', '#9358d6'], ['Red', '#d8333f']];
-  G.SHAPES = ['Isosceles Triangle', 'Square', 'Circle', 'Pyramid', 'Cylinder', 'Cone', 'Donut', 'Diamond', 'Star', 'Hexagon', 'Capsule'];
+  G.SHAPES = ['Isosceles Triangle', 'Square', 'Circle', 'Pyramid', 'Cylinder', 'Cone', 'Donut', 'Diamond', 'Star', 'Hexagon', 'Capsule', 'Pentagon', 'Octagon', 'Heart', 'Crescent Moon', 'Trapezoid', 'Plus'];
   G.PATTERNS = ['Solid', 'Stripes', 'Polka dots', 'Checker'];
   G.HAIRS = ['Elvis pompadour', 'Mohawk', 'Afro', 'Spiky anime', 'Pigtails', 'Mullet', 'Curly mop', 'Man-bun', 'Bald', 'Long flowing'];
   G.HATS = ['None', 'Crown', 'Top hat', 'Cowboy hat', 'Beanie', 'Chef hat', 'Propeller cap', 'Party hat', 'Viking helmet'];
-  G.EYES = ['Normal', 'Sleepy', 'Angry brows', 'Sparkly', 'Sunglasses', 'Monocle', 'Cyclops'];
-  G.EXTRAS = ['None', 'Mustache', 'Bow tie', 'Cape', 'Scarf', 'Backpack', 'Gold chain'];
+  G.EYES = ['Normal', 'Sleepy', 'Angry brows', 'Sparkly', 'Sunglasses', 'Monocle', 'Cyclops', 'Anime'];
+  G.EXTRAS = ['None', 'Mustache', 'Bow tie', 'Cape', 'Scarf', 'Backpack', 'Gold chain', 'Cane'];
   G.OBJECTS = ['teapot', 'lamp', 'rubber duck', 'traffic cone', 'toaster', 'chair', 'alarm clock', 'potted plant', 'boot', 'trophy'];
 
   function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; }
@@ -186,11 +186,12 @@ const G = {};
   G.outline = outline;
 
   // ---------- character sprites ----------
-  // look = {shape, color, pattern, hair, hairColor, hat, eyes, extra}  (all indices)
+  // look = {shape, color, pattern, hair, hairColor, hat, eyes, extra, acc}  (all indices; acc = accessory colour)
   const BW = 14; // body grid
   function inPoly(px, py, pts) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) c = !c; } return c; }
+  const poly = (n, r, cy, rot) => { const p = []; for (let i = 0; i < n; i++) { const a = rot + i * Math.PI * 2 / n; p.push([7 + Math.cos(a) * r, cy + Math.sin(a) * r]); } return p; };
   const starPts = []; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 3.2 : 7.6; starPts.push([7 + Math.cos(a) * r, 7.8 + Math.sin(a) * r]); }
-  const hexPts = []; for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; hexPts.push([7 + Math.cos(a) * 7.4, 7 + Math.sin(a) * 6.8]); }
+  const pentPts = poly(5, 7.6, 7.9, -Math.PI / 2);
   // mask functions (u,v pixel coords 0..13, test pixel centre)
   const MASK = [
     (u, v) => Math.abs(u + .5 - 7) <= 0.6 + v * 0.5, // isosceles triangle
@@ -203,57 +204,72 @@ const G = {};
     (u, v) => Math.abs(u + .5 - 7) + Math.abs(v + .5 - 7) * 1.0 <= 7.3, // diamond
     (u, v) => inPoly(u + .5, v + .5, starPts), // star
     (u, v) => { const dv = Math.abs(v + .5 - 7); return v >= 1 && v <= 12 && Math.abs(u + .5 - 7) <= 7 - Math.max(0, dv - 0.5) * 0.62; }, // hexagon: flat top/bottom, 6 straight sides
-    (u, v) => { if (u < 2 || u > 11) return false; if (v >= 5 && v <= 9) return true; const cy = v < 5 ? 5 : 9; return (u + .5 - 7) ** 2 + (v + .5 - cy) ** 2 <= 25.5; } // capsule
+    (u, v) => { if (u < 2 || u > 11) return false; if (v >= 5 && v <= 9) return true; const cy = v < 5 ? 5 : 9; return (u + .5 - 7) ** 2 + (v + .5 - cy) ** 2 <= 25.5; }, // capsule
+    (u, v) => inPoly(u + .5, v + .5, pentPts), // pentagon
+    (u, v) => { const dx = Math.abs(u + .5 - 7), dy = Math.abs(v + .5 - 7); return dx <= 6.6 && dy <= 6.6 && dx + dy <= 9.4; }, // octagon
+    (u, v) => { const x = (u + .5 - 7) / 6.6, y = -(v + .5 - 6.2) / 6.6; return (x * x + y * y - 1) ** 3 - x * x * y * y * y <= 0; }, // heart
+    (u, v) => { const d1 = (u + .5 - 7) ** 2 + (v + .5 - 7) ** 2, d2 = (u + .5 - 10.2) ** 2 + (v + .5 - 5.2) ** 2; return d1 <= 46 && d2 > 24; }, // crescent moon
+    (u, v) => v >= 2 && v <= 13 && Math.abs(u + .5 - 7) <= 3.6 + (v - 2) * 0.3, // trapezoid
+    (u, v) => { const dx = Math.abs(u + .5 - 7), dy = Math.abs(v + .5 - 7); return (dx <= 2.8 && dy <= 7) || (dy <= 2.8 && dx <= 7); }, // plus
   ];
-  const EYE_Y = [9, 5, 6, 8, 6, 8, 4, 6, 7, 6, 5];
-  const TOP_Y = [0, 1, 0, 3, 1, 0, 0, 0, 0, 0, 0]; // first body row
-  const HEAD_W = [3, 12, 10, 4, 10, 3, 10, 4, 4, 10, 10];
+  const EYE_Y = [9, 5, 6, 8, 6, 8, 4, 6, 7, 6, 5, 7, 6, 5, 6, 7, 6];
+  const EYE_DX = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, 0]; // crescent: face sits on the left
   const masks = MASK.map(f => { const m = []; for (let v = 0; v < BW; v++) for (let u = 0; u < BW; u++) m.push(f(u, v)); return m; });
   G.masks = masks;
+  // where the hair sits: the first row that is wide enough to be a "head", and how wide it is there
+  const HEAD = masks.map((m, si) => {
+    const w = v => { let n = 0, l = 99, r = -1; for (let u = 0; u < BW; u++) if (m[v * BW + u]) { n++; l = Math.min(l, u); r = Math.max(r, u); } return { n, l, r }; };
+    let top = 0; for (let v = 0; v < BW; v++) if (w(v).n >= 6) { top = v; break; }
+    const row = w(Math.min(BW - 1, top + 2)); return { top, l: row.l, r: row.r, w: Math.max(6, row.r - row.l + 1), cx: (row.l + row.r + 1) / 2 + (si === 14 ? 0 : 0) };
+  });
   // sprite canvas layout: 26 wide x 34 tall; body at (6, 16); feet at y 30..31
   const SW = 26, SH = 34, BX = 6, BY = 16;
   G.SPR = { w: SW, h: SH, ox: 13, oy: 31 }; // origin = between feet
   function pset(x, c, X, Y) { x.fillStyle = c; x.fillRect(X, Y, 1, 1); }
+  // hair is fitted to the head: hw = head width, so pigtails / long hair / sideburns attach to YOUR sides
   function drawHair(x, look, dir, hx, hy, hw) {
     const hc = G.HAIR_COLORS[look.hairColor % G.HAIR_COLORS.length][1], hd = G.shade(hc, 0.7), hl = G.shade(hc, 1.35);
-    const cx = 13; const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
+    const cx = Math.round(hx); const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(Math.round(a), Math.round(b), Math.round(w), Math.round(h)); };
     const back = dir === 1, side = dir === 2 || dir === 3, fl = dir === 2 ? -1 : 1; // dir: 0 down,1 up,2 left,3 right
+    const half = Math.round(hw / 2), L = cx - half, Rt = cx + half; // left / right edge of the head
     switch (look.hair) {
       case 0: // Elvis pompadour: tall shiny swoop + sideburns
-        R(cx - 4, hy - 4, 8, 4, hc); R(cx - 3, hy - 6, 8, 2, hc); R(cx - 1, hy - 7, 6, 1, hc); R(cx + 3 * (side ? fl : 1), hy - 7, 2, 2, hc);
+        R(L, hy - 3, hw, 3, hc); R(cx - 4, hy - 4, 8, 1, hc); R(cx - 3, hy - 6, 8, 2, hc); R(cx - 1, hy - 7, 6, 1, hc); R(cx + 3 * (side ? fl : 1), hy - 7, 2, 2, hc);
         R(cx - 2, hy - 6, 3, 1, hl); R(cx - 1, hy - 5, 1, 1, '#fff');
-        if (!back) { R(cx - hw / 2 - 1, hy, 1, 4, hd); R(cx + hw / 2, hy, 1, 4, hd); }
-        R(cx - 4, hy - 1, 8, 1, hd); break;
+        if (!back) { R(L, hy, 1, 4, hd); R(Rt - 1, hy, 1, 4, hd); }
+        R(L, hy - 1, hw, 1, hd); break;
       case 1: // mohawk
         for (let i = 0; i < 4; i++) R(cx - 1, hy - 3 - i * 2, 2, 2, i % 2 ? hl : hc); R(cx - 1, hy - 1, 2, 2, hd); break;
-      case 2: // afro
-        R(cx - 6, hy - 6, 12, 7, hc); R(cx - 5, hy - 8, 10, 2, hc); R(cx - 7, hy - 4, 14, 4, hc); R(cx - 3, hy - 7, 3, 1, hl); R(cx - 5, hy - 5, 1, 1, hd); R(cx + 3, hy - 3, 1, 1, hd); R(cx, hy - 2, 1, 1, hd); break;
+      case 2: { // afro: puffs out a little past your head
+        const w = Math.max(12, hw + 4); R(cx - w / 2, hy - 6, w, 7, hc); R(cx - w / 2 + 1, hy - 8, w - 2, 2, hc); R(cx - w / 2 - 1, hy - 4, w + 2, 4, hc); R(cx - 3, hy - 7, 3, 1, hl); R(cx - 5, hy - 5, 1, 1, hd); R(cx + 3, hy - 3, 1, 1, hd); R(cx, hy - 2, 1, 1, hd); break;
+      }
       case 3: // spiky anime
-        R(cx - 5, hy - 3, 10, 3, hc);
-        [[-6, -6], [-3, -9], [0, -10], [3, -8], [5, -5]].forEach(([dx, dy], i) => { R(cx + dx, hy + dy, 2, -dy - 2, hc); R(cx + dx, hy + dy, 1, 2, hl); });
+        R(L, hy - 3, hw, 3, hc);
+        [[-6, -6], [-3, -9], [0, -10], [3, -8], [5, -5]].forEach(([dx, dy]) => { R(cx + dx * hw / 12, hy + dy, 2, -dy - 2, hc); R(cx + dx * hw / 12, hy + dy, 1, 2, hl); });
         if (!back) R(cx - 2, hy, 3, 2, hc); break;
-      case 4: // pigtails
-        R(cx - 4, hy - 3, 8, 3, hc); R(cx - 3, hy - 4, 6, 1, hc); R(cx - 2, hy - 3, 2, 1, hl);
-        R(cx - 8, hy - 2, 3, 5, hc); R(cx + 5, hy - 2, 3, 5, hc); R(cx - 8, hy + 2, 2, 2, hd); R(cx + 6, hy + 2, 2, 2, hd);
-        R(cx - 5, hy - 1, 1, 1, P.red); R(cx + 4, hy - 1, 1, 1, P.red); break;
+      case 4: // pigtails: tied on at the sides of YOUR head
+        R(L, hy - 3, hw, 3, hc); R(L + 1, hy - 4, hw - 2, 1, hc); R(cx - 2, hy - 3, 2, 1, hl);
+        if (!side || fl < 0) { R(L - 3, hy - 2, 3, 5, hc); R(L - 3, hy + 2, 2, 3, hd); R(L - 1, hy - 1, 1, 1, P.red); }
+        if (!side || fl > 0) { R(Rt, hy - 2, 3, 5, hc); R(Rt + 1, hy + 2, 2, 3, hd); R(Rt, hy - 1, 1, 1, P.red); }
+        break;
       case 5: // mullet
-        R(cx - 4, hy - 3, 8, 3, hc); R(cx - 3, hy - 4, 6, 1, hl);
-        if (back || side) R(cx - 4 + (side ? fl * 2 : 0), hy - 1, 8, 7, hc); else { R(cx - hw / 2 - 1, hy, 2, 6, hd); R(cx + hw / 2 - 1, hy, 2, 6, hd); } break;
+        R(L, hy - 3, hw, 3, hc); R(L + 1, hy - 4, hw - 2, 1, hl);
+        if (back || side) R(L + (side ? fl * 2 : 0), hy - 1, hw, 7, hc); else { R(L - 1, hy, 2, 6, hd); R(Rt - 1, hy, 2, 6, hd); } break;
       case 6: // curly mop
-        for (let i = -5; i <= 4; i += 2) for (let j = -5; j <= -1; j += 2) { R(cx + i, hy + j, 2, 2, (i + j) & 2 ? hc : hd); }
+        for (let i = -half - 1; i <= half; i += 2) for (let j = -5; j <= -1; j += 2) { R(cx + i, hy + j, 2, 2, (i + j) & 2 ? hc : hd); }
         R(cx - 3, hy - 6, 6, 1, hc); R(cx - 1, hy - 5, 1, 1, hl); break;
       case 7: // man-bun
-        R(cx - 4, hy - 2, 8, 2, hc); R(cx - 3, hy - 3, 6, 1, hc); R(cx - 2, hy - 7, 4, 4, hc); R(cx - 1, hy - 7, 2, 1, hl); R(cx - 2, hy - 4, 4, 1, hd); break;
+        R(L, hy - 2, hw, 2, hc); R(L + 1, hy - 3, hw - 2, 1, hc); R(cx - 2, hy - 7, 4, 4, hc); R(cx - 1, hy - 7, 2, 1, hl); R(cx - 2, hy - 4, 4, 1, hd); break;
       case 8: // bald (no hair, no shine)
         break;
-      case 9: // long flowing
-        R(cx - 5, hy - 3, 10, 4, hc); R(cx - 4, hy - 4, 8, 1, hc); R(cx - 3, hy - 3, 3, 1, hl);
-        if (back) R(cx - 5, hy, 10, 10, hc); else { R(cx - 6, hy, 3, 10, hc); R(cx + 3, hy, 3, 10, hc); R(cx - 6, hy + 9, 2, 1, hd); R(cx + 4, hy + 9, 2, 1, hd); } break;
+      case 9: // long flowing: falls down both sides of YOUR head
+        R(L - 1, hy - 3, hw + 2, 4, hc); R(L, hy - 4, hw, 1, hc); R(cx - 3, hy - 3, 3, 1, hl);
+        if (back) R(L - 1, hy, hw + 2, 10, hc); else { R(L - 2, hy, 3, 10, hc); R(Rt - 1, hy, 3, 10, hc); R(L - 2, hy + 9, 2, 1, hd); R(Rt, hy + 9, 2, 1, hd); } break;
     }
   }
   function hairTop(h) { return [7, 9, 8, 10, 4, 4, 6, 7, 0, 4][h] || 4; }
-  function drawHat(x, look, dir, hy) {
-    const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); }; const cx = 13;
+  function drawHat(x, look, dir, hy, hx) {
+    const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); }; const cx = Math.round(hx || 13);
     switch (look.hat) {
       case 1: R(cx - 4, hy - 3, 8, 3, P.gold); R(cx - 4, hy - 5, 2, 2, P.gold); R(cx - 1, hy - 6, 2, 3, P.gold); R(cx + 2, hy - 5, 2, 2, P.gold); R(cx - 1, hy - 2, 2, 1, P.red); R(cx - 3, hy - 2, 1, 1, P.sky); R(cx + 2, hy - 2, 1, 1, P.green); break;
       case 2: R(cx - 6, hy - 1, 12, 2, P.ink); R(cx - 4, hy - 9, 8, 8, '#2b2535'); R(cx - 4, hy - 3, 8, 1, P.red); R(cx - 3, hy - 8, 1, 4, '#4a4058'); break;
@@ -275,25 +291,40 @@ const G = {};
     const e = look.eyes;
     if (e === 6) { const c = side ? ex + s * 2 : ex - 1; R(c - 1, ey - 1, 4, 4, P.white); R(c, ey, 2, 2, P.ink); R(c, ey, 1, 1, '#fff'); R(c - 1, ey - 1, 4, 1, P.ink); return; }
     if (e === 4) { const a = side ? ex + s * 1 : ex - 5, w = side ? 5 : 10; R(a, ey, w, 2, P.ink); R(a + 1, ey, 1, 1, P.sky); if (!side) R(ex - 4, ey, 3, 3, P.ink), R(ex + 1, ey, 3, 3, P.ink); return; }
+    if (e === 7) { // anime: big shiny eyes with lashes
+      const pos = side ? [ex + s * 2 + (s < 0 ? -1 : 0)] : [ex - 4, ex + 1];
+      for (const c of pos) { R(c, ey - 1, 3, 4, '#fff'); R(c, ey, 3, 3, P.dblue); R(c + 1, ey + 1, 2, 2, P.ink); R(c, ey, 1, 1, '#fff'); R(c + 2, ey + 2, 1, 1, P.sky); R(c - 1, ey - 2, 5, 1, P.ink); R(c - 1, ey - 1, 1, 1, P.ink); R(c + 3, ey - 1, 1, 1, P.ink); }
+      return;
+    }
     for (const cx of eyes) {
       if (e === 1) { R(cx, ey + 1, 2, 1, P.ink); R(cx, ey + 2, 2, 1, '#fff'); continue; }
       R(cx, ey, 2, 3, '#fff'); R(cx + (side ? (s > 0 ? 1 : 0) : 0), ey + 1, 1, 2, P.ink);
       if (e === 3) { R(cx + 1, ey, 1, 1, P.yellow); R(cx - 1, ey - 1, 1, 1, P.yellow); }
-      if (e === 2) { R(cx - (cx < ex ? 0 : 1), ey - 2 + (cx < ex ? 0 : 0), 3, 1, P.ink); R(cx + (cx < ex ? 2 : -1), ey - 1, 1, 1, P.ink); }
+      if (e === 2) { R(cx - (cx < ex ? 0 : 1), ey - 2, 3, 1, P.ink); R(cx + (cx < ex ? 2 : -1), ey - 1, 1, 1, P.ink); }
     }
     if (e === 5) { const m = eyes[eyes.length - 1]; R(m - 1, ey - 1, 4, 1, P.gold); R(m - 1, ey + 3, 4, 1, P.gold); R(m - 1, ey - 1, 1, 5, P.gold); R(m + 2, ey - 1, 1, 5, P.gold); R(m + 2, ey + 4, 1, 3, P.gold); }
   }
+  G.accColor = look => G.BODY_COLORS[(look.acc == null ? 0 : look.acc) % 18][1];
+  const lookKey = look => [look.shape, look.color, look.pattern, look.hair, look.hairColor, look.hat, look.eyes, look.extra, look.acc | 0].join(',');
+  G.lookKey = lookKey;
   const sprCache = new Map();
   // returns canvas for look/dir/frame (frame 0 idle, 1..2 walk)
   G.charSprite = function (look, dir, frame) {
-    const key = look.shape + ',' + look.color + ',' + look.pattern + ',' + look.hair + ',' + look.hairColor + ',' + look.hat + ',' + look.eyes + ',' + look.extra + '|' + dir + '|' + frame;
+    const key = lookKey(look) + '|' + dir + '|' + frame;
     let c = sprCache.get(key); if (c) return c;
     const [cv, x] = G.mk(SW, SH);
+    const shp = Math.min(look.shape | 0, MASK.length - 1);
     const col = G.BODY_COLORS[look.color % 18][1], dk = G.shade(col, 0.72), lt = G.shade(col, 1.3), pc = G.shade(col, look.color === 14 ? 0.82 : 1.45);
-    const m = masks[look.shape], bob = frame === 1 ? -1 : 0, side = dir === 2 || dir === 3, s = dir === 2 ? -1 : 1;
+    const acc = G.accColor(look), accD = G.shade(acc, 0.7), accL = G.shade(acc, 1.25);
+    const m = masks[shp], bob = frame === 1 ? -1 : 0, side = dir === 2 || dir === 3, s = dir === 2 ? -1 : 1;
     const by = BY + bob;
-    // cape behind body
-    if (look.extra === 3 && dir !== 0) { x.fillStyle = P.red; x.fillRect(BX + 2 - (side ? s * 3 : 0), by + 4, 10, 11); x.fillStyle = P.dred; x.fillRect(BX + 2 - (side ? s * 3 : 0), by + 13, 10, 2); }
+    const R = (a, b, w, h, c2) => { x.fillStyle = c2; x.fillRect(a, b, w, h); };
+    // cape BEHIND the body (front + side views): peeks out around you and flows behind
+    if (look.extra === 3 && dir === 0) { R(BX - 1, by + 4, 16, 11, acc); R(BX - 1, by + 13, 16, 2, accD); }
+    if (look.extra === 3 && side) { const cx0 = BX + 2 - s * 4; R(cx0, by + 4, 10, 11, acc); R(cx0 - s * 2, by + 9, 10, 6, acc); R(cx0 - s * 2, by + 13, 10, 2, accD); }
+    // cane held at your side (behind the body in the back view)
+    const cane = () => { const hx = dir === 1 ? BX - 3 : side ? (s > 0 ? BX + 14 : BX - 3) : BX + 15; R(hx, by + 6, 1, 13 - bob, acc); R(hx, by + 6, 3, 1, acc); R(hx + 2, by + 7, 1, 2, acc); R(hx, by + 10, 1, 1, accL); R(hx, by + 14, 1, 1, accL); };
+    if (look.extra === 7 && dir === 1) cane();
     // feet
     const fy = BY + 14; x.fillStyle = P.ink;
     const fo = frame === 1 ? [-1, 1] : frame === 2 ? [1, -1] : [0, 0];
@@ -303,36 +334,53 @@ const G = {};
     const ins = (u, v) => u >= 0 && v >= 0 && u < BW && v < BW && m[v * BW + u];
     for (let v = 0; v < BW; v++) for (let u = 0; u < BW; u++) {
       if (!ins(u, v)) { if (ins(u - 1, v) || ins(u + 1, v) || ins(u, v - 1) || ins(u, v + 1)) pset(x, P.ink, BX + u, by + v); continue; }
-      let c = col;
-      if (patternAt(look.pattern, u, v)) c = pc;
-      if (!ins(u + 1, v) || !ins(u, v + 1)) c = dk; else if (!ins(u - 1, v) || !ins(u, v - 1)) c = lt;
-      if (look.shape === 3 && u >= 7 && c !== dk) c = G.shade(c, 0.85); // pyramid second face
-      if (look.shape === 4 && v <= 3 && c !== dk) c = G.shade(c, 1.15); // cylinder top
-      pset(x, c, BX + u, by + v);
+      let c2 = col;
+      if (patternAt(look.pattern, u, v)) c2 = pc;
+      if (!ins(u + 1, v) || !ins(u, v + 1)) c2 = dk; else if (!ins(u - 1, v) || !ins(u, v - 1)) c2 = lt;
+      if (shp === 3 && u >= 7 && c2 !== dk) c2 = G.shade(c2, 0.85); // pyramid second face
+      if (shp === 4 && v <= 3 && c2 !== dk) c2 = G.shade(c2, 1.15); // cylinder top
+      pset(x, c2, BX + u, by + v);
     }
-    // outline corners left out: diagonals
-    for (let v = -1; v <= BW; v++) for (let u = -1; u <= BW; u++) if (!ins(u, v) && !(ins(u - 1, v) || ins(u + 1, v) || ins(u, v - 1) || ins(u, v + 1)) && false) pset(x, P.ink, BX + u, by + v);
-    // extras front
-    const ey = by + EYE_Y[look.shape], ex = 13;
-    const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
+    // cape seen from BEHIND: it hangs over your back like a backpack does
+    if (look.extra === 3 && dir === 1) { R(BX + 1, by + 3, 12, 12, acc); R(BX + 1, by + 3, 12, 1, accL); R(BX + 3, by + 5, 1, 9, accD); R(BX + 10, by + 5, 1, 9, accD); R(BX + 1, by + 13, 12, 2, accD); R(BX + 5, by + 2, 4, 1, P.gold); }
+    const hd = HEAD[shp];
+    const ey = by + EYE_Y[shp], ex = 13 + EYE_DX[shp];
     if (look.extra === 5) { if (dir === 1) { R(8, by + 5, 10, 8, P.brown); R(9, by + 7, 8, 2, P.tan); R(12, by + 10, 2, 2, P.gold); } else if (side) R(13 - s * 7 - (s > 0 ? 1 : 0), by + 5, 3, 8, P.brown); else { R(8, by + 5, 1, 6, P.dbrown); R(17, by + 5, 1, 6, P.dbrown); } }
     drawEyes(x, look, dir, ex, ey);
     if (dir !== 1) {
       if (look.extra === 1) { const mx = side ? ex + s * 3 - 2 : ex - 3; R(mx, ey + 4, side ? 4 : 6, 1, P.dbrown); R(mx - 1, ey + 5, 1, 1, P.dbrown); R(mx + (side ? 4 : 6), ey + 5, 1, 1, P.dbrown); }
       else if (look.eyes !== 6 && look.eyes !== 4) { const mx = side ? ex + s * 3 : ex - 1; R(mx, ey + 5, 2, 1, P.ink); }
-      if (look.extra === 2) { R(ex - 3, by + 12, 2, 3, P.red); R(ex + 1, by + 12, 2, 3, P.red); R(ex - 1, by + 13, 2, 1, P.dred); }
+      if (look.extra === 2) { R(ex - 3, by + 12, 2, 3, acc); R(ex + 1, by + 12, 2, 3, acc); R(ex - 1, by + 13, 2, 1, accD); }
       if (look.extra === 6) { for (let i = -3; i <= 3; i++) R(ex + i - (i < 0 ? 0 : 1), by + 10 + Math.abs(i) * -0.5 + 2, 1, 1, i % 2 ? P.gold : P.yellow); R(ex - 1, by + 13, 2, 2, P.gold); }
-      if (look.extra === 3 && dir === 0) { R(BX + 1, by + 9, 1, 5, P.red); R(BX + 12, by + 9, 1, 5, P.red); }
+      if (look.extra === 3 && dir === 0) { R(ex - 3, by + 3, 6, 1, acc); R(ex - 1, by + 4, 2, 1, P.gold); } // cape collar + clasp
     }
-    if (look.extra === 4) { R(BX + 2, by + 9, 10, 2, P.teal); R(BX + 2, by + 10, 10, 1, G.shade(P.teal, .7)); if (dir !== 1) R(ex + 2, by + 11, 2, 4, P.teal); }
-    // hair + hat
-    const hy = by + TOP_Y[look.shape] + (look.shape === 0 || look.shape === 5 ? 2 : 0);
-    drawHair(x, look, dir, 13, hy, HEAD_W[look.shape]);
-    if (look.hat) drawHat(x, look, dir, hy - hairTop(look.hair) + (look.hair === 8 ? 0 : 2));
-    // outline hair/hat region with ink via second pass: simple approach -> outline whole sprite
+    if (look.extra === 4) { R(BX + 2, by + 9, 10, 2, acc); R(BX + 2, by + 10, 10, 1, accD); if (dir !== 1) R(ex + 2, by + 11, 2, 4, acc); }
+    if (look.extra === 7 && dir !== 1) cane();
+    // hair + hat, fitted to the head of THIS shape
+    const hy = by + hd.top + 1, hx = BX + hd.cx;
+    drawHair(x, look, dir, hx, hy, hd.w);
+    if (look.hat) drawHat(x, look, dir, hy - hairTop(look.hair) + (look.hair === 8 ? 0 : 2), hx);
     c = outline(cv, P.ink);
     if (sprCache.size > 3000) sprCache.clear();
     sprCache.set(key, c); return c;
+  };
+  // ghost / Spirit version: no feet, a wavy tail instead (frame 0/1 = tail wiggle)
+  const ghostCache = new Map();
+  G.ghostSprite = function (look, dir, frame) {
+    const key = lookKey(look) + '|' + dir + '|' + frame; let g = ghostCache.get(key); if (g) return g;
+    const src = G.charSprite(look, dir === 2 ? 3 : dir, 0); const [cv, x] = G.mk(src.width, src.height + 4);
+    x.drawImage(src, 0, 0, src.width, src.height - 6, 0, 0, src.width, src.height - 6); // everything except the feet
+    const col = G.BODY_COLORS[look.color % 18][1], dk = G.shade(col, 0.72);
+    const top = BY + 12, w0 = 12, cx = 14;
+    for (let i = 0; i < 9; i++) { const w = Math.max(1, Math.round(w0 * (1 - i / 9))), off = Math.round(Math.sin(i * 0.9 + frame * 2) * 1.6 * (i / 9)); x.fillStyle = i > 6 ? dk : col; x.fillRect(cx - w / 2 + off, top + i, w, 1); x.fillStyle = P.ink; x.fillRect(cx - w / 2 + off - 1, top + i, 1, 1); x.fillRect(cx + w / 2 + off, top + i, 1, 1); }
+    x.fillStyle = P.ink; x.fillRect(cx - 1 + Math.round(Math.sin(9 * 0.9 + frame * 2) * 1.6), top + 9, 2, 1);
+    ghostCache.set(key, cv); if (ghostCache.size > 600) ghostCache.clear(); return cv;
+  };
+  G.drawGhost = function (look, dir, sx, sy, alpha, t) {
+    const frame = Math.floor(t * 5) % 2, c = G.ghostSprite(look, dir, frame); ctx.save(); ctx.globalAlpha = alpha;
+    if (dir === 2) { ctx.translate(Math.round(sx) + 14, 0); ctx.scale(-1, 1); ctx.drawImage(c, 0, Math.round(sy) - SH + 1); }
+    else ctx.drawImage(c, Math.round(sx) - 14, Math.round(sy) - SH + 1);
+    ctx.restore();
   };
   // draw character at world pos (feet) on ctx
   G.drawChar = function (look, dir, frame, sx, sy, alpha) {
@@ -347,7 +395,7 @@ const G = {};
   };
   // portrait (front, idle) scaled
   G.portrait = function (look, x, y, sc) { const c = G.charSprite(look, 0, 0); ctx.drawImage(c, x, y, c.width * (sc || 1), c.height * (sc || 1)); };
-  G.randomLook = function () { const r = n => Math.floor(Math.random() * n); return { shape: r(11), color: r(18), pattern: Math.random() < .6 ? 0 : r(4), hair: r(10), hairColor: r(10), hat: Math.random() < .4 ? 0 : r(9), eyes: r(7), extra: Math.random() < .3 ? 0 : r(7) }; };
+  G.randomLook = function () { const r = n => Math.floor(Math.random() * n); return { shape: r(G.SHAPES.length), color: r(18), pattern: Math.random() < .6 ? 0 : r(4), hair: r(10), hairColor: r(10), hat: Math.random() < .4 ? 0 : r(9), eyes: r(G.EYES.length), extra: Math.random() < .3 ? 0 : r(G.EXTRAS.length), acc: r(18) }; };
 
   // ---------- object sprites (the "bodies") ----------
   const OP = { k: P.ink, w: P.white, l: P.light, g: P.grey, m: P.mid, r: P.red, R: P.dred, o: P.orange, y: P.yellow, Y: P.gold, b: P.blue, B: P.dblue, s: P.sky, n: P.brown, N: P.dbrown, t: P.tan, c: P.cream, e: P.green, E: P.dgreen, p: P.pink, u: P.purple, d: P.dark };
@@ -411,7 +459,7 @@ const G = {};
   G.bodySprite = function (piece, look) {
     piece = Math.max(0, Math.min(5, piece | 0));
     look = look || { shape: 0, color: 15, pattern: 0, hair: 8, hairColor: 0, hat: 0, eyes: 0, extra: 0 };
-    const key = piece + '|' + look.color + ',' + look.pattern + ',' + look.hair + ',' + look.hairColor + ',' + look.hat + ',' + look.eyes + ',' + look.extra;
+    const key = piece + '|' + lookKey(look);
     let c = bodyCache.get(key); if (c) return c;
     const [cv, x] = G.mk(26, 34);
     const g = PIECE_GRIDS[piece], h = g.length, top = 33 - h, left = 6;
