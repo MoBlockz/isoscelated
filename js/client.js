@@ -97,12 +97,23 @@ const Game = {};
     if (s.mz && C.map) C.map.gateOpen = !!s.mz.open;
     if (mine.tp[0] !== C.me.tpSeq) { C.me.tpSeq = mine.tp[0]; C.me.x = mine.tp[1]; C.me.y = mine.tp[2]; }
     const now = performance.now(), seen = new Set();
-    if (C.lastSnapT) { C.snapGap = (C.snapGap || 66) * 0.9 + Math.min(500, now - C.lastSnapT) * 0.1; C.interpDelay = Math.max(110, Math.min(320, C.snapGap * 1.7)); } C.lastSnapT = now;
+    // Stamp positions with the HOST's clock (mapped onto ours), so uneven internet arrival times don't make others stutter.
+    let at = now;
+    if (s.st != null) {
+      const off = now - s.st;
+      if (C.clockOff == null || off < C.clockOff || off - C.clockOff > 1000) C.clockOff = off; else C.clockOff += 0.3; // follow the fastest delivery, drift up slowly
+      at = s.st + C.clockOff;
+    }
     for (const r of s.p) {
       const [id, x, y, d, mv, disp, fl] = r; if (id === C.id) { C.me.fl = fl; C.me.disp = disp; continue; }
       seen.add(id); let o = C.others.get(id);
       if (!o || now - o.last > 400) { o = { buf: [], x, y, dir: d, mv, disp, fl, last: now, anim: Math.random() * 3 }; C.others.set(id, o); }
-      o.buf.push([now, x, y, d, mv]); if (o.buf.length > 8) o.buf.shift(); o.disp = disp; o.fl = fl; o.last = now; o.vis = true;
+      o.disp = disp; o.fl = fl; o.last = now; o.vis = true;
+      // place each position at the moment it was TRUE (the mover's own time), skipping repeats with no new info
+      const key = s.st != null ? s.st + (r[7] || 0) : now; if (r[7] && o.lastKey === key) continue; o.lastKey = key;
+      const stamp = at + (r[7] || 0), prev = o.buf.length ? o.buf[o.buf.length - 1][0] : -1e9;
+      C.late = Math.max(now - stamp, (C.late || 0) * 0.995); // how far behind the freshest news can be
+      o.buf.push([Math.max(stamp, prev + 1), x, y, d, mv]); if (o.buf.length > 12) o.buf.shift();
     }
     for (const [id, o] of C.others) if (!seen.has(id)) o.vis = false;
     for (const b of s.b) if (!C.seenBodies.has(b[0])) { C.seenBodies.add(b[0]); C.popT = C.popT || {}; C.popT[b[0]] = 0; }
@@ -215,15 +226,16 @@ const Game = {};
       me.anim += dt * 8; me.stepT -= dt; if (me.stepT <= 0 && !ghost) { me.stepT = 0.3; Snd.sfx('step'); }
     }
     C.sendT -= dt;
-    if (C.sendT <= 0 && C.connected) { C.sendT = 1 / 15; send({ t: 'm', x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, d: me.dir, v: me.mv, s: me.tpSeq }); }
+    if (C.sendT <= 0 && C.connected) { C.sendT = 1 / 15; send({ t: 'm', x: Math.round(me.x * 10) / 10, y: Math.round(me.y * 10) / 10, d: me.dir, v: me.mv, s: me.tpSeq, ts: Math.round(performance.now()) }); }
   }
   function interp(o, now) {
-    const rt = now - (C.interpDelay || 110), b = o.buf; if (!b.length) return;
-    let a = b[0], c = b[b.length - 1];
+    const rt = now - Math.max(100, Math.min(500, (C.late || 0) + 80)), b = o.buf; if (!b.length) return;
+    let a = b[0], c = b[b.length - 1], px, py;
     for (let i = 0; i < b.length - 1; i++) if (b[i][0] <= rt && b[i + 1][0] >= rt) { a = b[i]; c = b[i + 1]; break; }
-    if (rt >= c[0]) { o.x = c[1]; o.y = c[2]; o.dir = c[3]; o.mv = c[4]; return; }
-    if (rt <= a[0]) { o.x = a[1]; o.y = a[2]; o.dir = a[3]; o.mv = a[4]; return; }
-    const k = (rt - a[0]) / Math.max(1, c[0] - a[0]); o.x = a[1] + (c[1] - a[1]) * k; o.y = a[2] + (c[2] - a[2]) * k; o.dir = c[3]; o.mv = c[4];
+    if (rt >= c[0]) { px = c[1]; py = c[2]; o.dir = c[3]; o.mv = c[4]; }
+    else if (rt <= a[0]) { px = a[1]; py = a[2]; o.dir = a[3]; o.mv = a[4]; }
+    else { const k = (rt - a[0]) / Math.max(1, c[0] - a[0]); px = a[1] + (c[1] - a[1]) * k; py = a[2] + (c[2] - a[2]) * k; o.dir = c[3]; o.mv = c[4]; }
+    o.x = px; o.y = py;
   }
 
   // ---------- what can I do right now? ----------
@@ -304,7 +316,7 @@ const Game = {};
   };
 
   // ---------- world drawing ----------
-  let camx = 0, camy = 0;
+  let camx = 0, camy = 0, camGlide = false;
   const redSil = new WeakMap();
   function redOutline(c) { let r = redSil.get(c); if (!r) { const [cv, x] = G.mk(c.width, c.height); x.drawImage(c, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = P.hexred; x.fillRect(0, 0, c.width, c.height); r = cv; redSil.set(c, r); } return r; }
   function drawPlayer(look, name, x, y, dir, anim, mv, opts) {
@@ -336,11 +348,15 @@ const Game = {};
   }
   function drawWorld(dt, t) {
     const me = C.me;
-    camx += (me.x - G.W / 2 - camx) * Math.min(1, dt * 10); camy += (me.y - 12 - G.H / 2 - camy) * Math.min(1, dt * 10);
-    if (Math.abs(me.x - G.W / 2 - camx) > 200 || Math.abs(me.y - 12 - G.H / 2 - camy) > 200) { camx = me.x - G.W / 2; camy = me.y - 12 - G.H / 2; }
+    // Camera: locked to the player on whole pixels, so you never wobble against the floor/hedges.
+    // Only big jumps (teleports, chutes) glide; very big ones snap.
+    const tx = Math.round(me.x) - (G.W >> 1), ty = Math.round(me.y) - 12 - (G.H >> 1), far = Math.max(Math.abs(tx - camx), Math.abs(ty - camy));
+    if (far > 24 && far <= 200) camGlide = true;
+    if (camGlide && far > 1 && far <= 200) { const k = Math.min(1, dt * 12), st = (a, b) => { const d = (b - a) * k; return a + (Math.abs(d) < 1 ? Math.sign(b - a) : Math.round(d)); }; camx = st(camx, tx); camy = st(camy, ty); }
+    else { camGlide = false; camx = tx; camy = ty; }
     const m = C.map, sab = C.snap && C.snap.sab;
     const mapW = m.w * T, mapH = m.h * T;
-    if (mapW < G.W) camx = (mapW - G.W) / 2; if (mapH < G.H) camy = (mapH - G.H) / 2;
+    if (mapW < G.W) camx = Math.round((mapW - G.W) / 2); if (mapH < G.H) camy = Math.round((mapH - G.H) / 2);
     World.draw(m, camx, camy, { t, rattle: C.rattle, chuteWobble: C.wobble, jam: sab && sab.k === 'jam' ? sab.room : null, switches: sab && sab.k === 'lights', lights: sab && sab.sw, melt: sab && sab.k === 'melt' });
     // drawables sorted by y
     const list = [];

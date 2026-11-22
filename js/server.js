@@ -161,7 +161,7 @@ const Server = {};
     if (!viewer.alive) return true;
     return Math.hypot(viewer.x - x, viewer.y - y) <= visionOf(viewer) + (extra || 30);
   }
-  function teleport(p, x, y) { p.x = x; p.y = y; p.tpSeq++; }
+  function teleport(p, x, y) { p.x = x; p.y = y; p.tpSeq++; p.mt = null; }
   function hexCdFor(p) { return Math.max(5, st.settings.hexCd - (p.type === 'classic' ? 5 : 0)); }
   function stationNear(p, kind, filt) { let best = null, bd = 1e9; for (const s of st.map.stations) if (s.kind === kind && (!filt || filt(s))) { const d = Math.hypot(p.x - s.x, p.y - s.y); if (d < bd) { bd = d; best = s; } } return [best, bd]; }
 
@@ -284,6 +284,8 @@ const Server = {};
         const ghost = !p.alive;
         if (Math.hypot(x - p.x, y - p.y) > maxd || (!ghost && World.hit(st.map, x, y, st.sab.k === 'jam' ? st.sab.room : null) && !World.hit(st.map, p.x, p.y))) { p.tpSeq++; return; }
         p.x = x; p.y = y; p.dir = msg.d & 3; p.mv = msg.v ? 1 : 0;
+        // when was this position true? (the player's own clock, mapped onto ours) - lets everyone else draw them smoothly
+        const ts = +msg.ts; if (isFinite(ts)) { const off = now - ts; p.toff = (p.toff == null || off < p.toff || off - p.toff > 1000) ? off : p.toff + 0.3; p.mt = ts + p.toff; } else p.mt = now;
         if (p.hold >= 0) { const [s, d] = stationNear(p, 'melt', s => s.btn === p.hold); if (d > USE_RANGE + 8) p.hold = -1; }
         break;
       }
@@ -707,6 +709,7 @@ const Server = {};
     const S = st.settings, bar = taskBar();
     const al = alive(), livingShapes = al.filter(p => p.role === 'shape').length;
     const markOf = {}; for (const k of st.marks) markOf[k.target] = 1;
+    const snapSt = Math.round(performance.now());
     for (const v of st.players.values()) {
       if (v.bot || v.left) continue;
       if (st.rosterDirty) send(v.id, rosterFor(v));
@@ -722,12 +725,12 @@ const Server = {};
         if ((v.role === 'hex' || v.sq) && markOf[p.id] && st.phase === 'play') fl |= 4; // marks: Hexagoners + Squareff
         if (v.sq && p.shiftAs && st.phase === 'play') fl |= 8;
         if (st.mode === 'maze' && p.role === 'mino') fl |= 16; // the Squareff sees a hexagon over disguised Shapeshifters
-        ps.push([p.id, Math.round(p.x), Math.round(p.y), p.dir, p.mv, p.shiftAs || p.id, fl]);
+        ps.push([p.id, Math.round(p.x * 2) / 2, Math.round(p.y * 2) / 2, p.dir, p.mv, p.shiftAs || p.id, fl, p.mt != null && !p.bot ? Math.max(-1000, Math.min(0, Math.round(p.mt - snapSt))) : 0]);
       }
       const bodies = st.bodies.filter(b => !v.alive || st.phase !== 'play' || Math.hypot(b.x - v.x, b.y - v.y) <= vr + 30 || (v.camOn && st.map.cams.some(c => Math.hypot(b.x - c.x, b.y - c.y) < 110))).map(b => [b.id, b.obj, b.x, b.y, b.rep ? 1 : 0]);
       const me = { sq: v.sq ? 1 : 0, tp: [v.tpSeq, Math.round(v.x), Math.round(v.y)], alive: v.alive ? 1 : 0, tasks: v.tasks.map(t => [t.k, t.done ? 1 : 0]), bells: v.bells, rattled: v.rattled ? 1 : 0, cam: v.camOn ? 1 : 0 };
       if (v.role === 'hex') { me.role = 'hex'; me.type = v.type; me.hexCd = +v.hexCd.toFixed(1); me.plantCd = +v.plantCd.toFixed(1); me.shiftCd = +v.shiftCd.toFixed(1); me.shiftT = +v.shiftT.toFixed(1); me.shiftAs = v.shiftAs; me.sabCd = +st.sabCd.toFixed(1); me.marking = st.marks.some(k => k.by === v.id) ? 1 : 0; }
-      const snap = { t: 's', ph: st.phase, p: ps, b: bodies, me, bar: +bar.toFixed(3), mt: S.matchTime && !st.practice ? Math.max(0, Math.ceil(st.matchT)) : -1, bell: Math.ceil(st.bellCd || 0), sd: (st.phase === 'play' && livingShapes <= 3 && !st.practice) ? 1 : 0 };
+      const snap = { t: 's', st: snapSt, ph: st.phase, p: ps, b: bodies, me, bar: +bar.toFixed(3), mt: S.matchTime && !st.practice ? Math.max(0, Math.ceil(st.matchT)) : -1, bell: Math.ceil(st.bellCd || 0), sd: (st.phase === 'play' && livingShapes <= 3 && !st.practice) ? 1 : 0 };
       if (st.sab.k) snap.sab = { k: st.sab.k, t: st.sab.t != null ? Math.ceil(st.sab.t) : 0, sw: st.sab.sw, hold: st.sab.hold ? st.sab.hold.map(x => x ? 1 : 0) : null, room: st.sab.room };
       if (st.phase === 'meeting') snap.m = { st: st.meeting.stage, t: Math.ceil(st.meeting.t), myVote: v.vote };
       if (st.phase === 'reveal') snap.tm = Math.ceil(st.phaseT);
