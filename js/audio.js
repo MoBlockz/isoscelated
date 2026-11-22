@@ -904,6 +904,13 @@
       g.gain.exponentialRampToValueAtTime(0.0001, b + 0.55);
       o.start(b); lfo.start(b); o.stop(b + 0.56); lfo.stop(b + 0.56);
     },
+    thunder: function (t) { // lightning CRASH: a sharp crack, then a rolling rumble
+      sN(t, 0.09, 0.32, 'highpass', 2200, 0, 0.7, 0.001);
+      sN(t + 0.01, 0.25, 0.28, 'bandpass', 1400, 300, 0.9, 0.002, 1);
+      sT('square', 120, 45, t, 0.18, 0.12);
+      sN(t + 0.06, 1.6, 0.34, 'lowpass', 600, 70, 1.2, 0.05, 2);
+      sN(t + 0.35, 1.2, 0.2, 'lowpass', 300, 60, 1.5, 0.15, 2);
+    },
     puff: function (t) {
       sN(t, 0.45, 0.22, 'lowpass', 2500, 250, 0.7, 0.02);
       sN(t + 0.04, 0.3, 0.08, 'bandpass', 900, 300, 1);

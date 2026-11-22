@@ -550,10 +550,31 @@ const G = {};
         ctx.fillStyle = f.t % .1 < .05 ? P.glow : '#fff'; let px = f.x, py = f.y; const n = 8;
         for (let k = 1; k <= n; k++) { const tx = f.x + (f.x2 - f.x) * k / n + (k < n ? (Math.random() - .5) * 8 : 0), ty = f.y + (f.y2 - f.y) * k / n + (k < n ? (Math.random() - .5) * 8 : 0); line(px - camx, py - camy, tx - camx, ty - camy); px = tx; py = ty; }
       }
+      else if (f.k === 'bolt') { } // drawn by G.drawAreaFlashes
+      else if (f.k === 'areaflash') { } // drawn by G.drawAreaFlashes, on top of the darkness
+      else if (f.k === 'scorch') { const k = Math.min(1, (f.life - f.t) / 0.8); ctx.globalAlpha = 0.45 * k; G.rect(sx - 9, sy - 1, 18, 3, '#2a1a3a'); G.rect(sx - 6, sy - 2, 12, 5, '#2a1a3a'); ctx.globalAlpha = 1; }
       else if (f.k === 'flash') { ctx.globalAlpha = 1 - f.t / f.life; G.rect(sx - 16, sy - 30, 32, 34, '#fff'); ctx.globalAlpha = 1; }
       else if (f.k === 'shrink') { const k = 1 - f.t / f.life; const c = G.charSprite(f.look, 0, 0); const w = c.width * k, h = c.height * k; ctx.drawImage(c, sx - w / 2, sy - h, w, h); }
       else if (f.k === 'bubble') { // quick chat bubble follows nothing (static)
       }
+    }
+  };
+  G.drawAreaFlashes = function (camx, camy) { // after the vision mask, so the flash lights up the dark area too
+    for (const f of G.fx) {
+      if (f.k === 'bolt') { // big lightning bolt from the sky down onto the victim (flickers twice)
+        const vis = f.t < 0.08 || (f.t > 0.13 && f.t < 0.24) || (f.t > 0.3 && f.t < 0.36); if (vis) {
+        if (!f.pts || f.t > 0.13 && !f.re) { f.re = f.t > 0.13; f.pts = []; let x = f.x; const top = f.y - 260; for (let y = top; y < f.y; y += 12) { f.pts.push([x, y]); x += (Math.random() - .5) * 16; } f.pts.push([f.x, f.y]);
+          f.br = []; for (let i = 2; i < f.pts.length - 3; i += 4) if (Math.random() < .7) { const [bx, by] = f.pts[i], d = Math.random() < .5 ? -1 : 1; f.br.push([bx, by, bx + d * (12 + Math.random() * 14), by + 10 + Math.random() * 14]); } }
+        for (const [w, c] of [[5, 'rgba(180,140,255,0.55)'], [3, '#d9c8ff'], [1, '#fff']]) { ctx.fillStyle = c; for (let i = 1; i < f.pts.length; i++) { const a = f.pts[i - 1], b = f.pts[i]; for (let o = -(w >> 1); o <= w >> 1; o++) line(a[0] - camx + o, a[1] - camy, b[0] - camx + o, b[1] - camy); } }
+        ctx.fillStyle = '#e8dcff'; for (const b of f.br) line(b[0] - camx, b[1] - camy, b[2] - camx, b[3] - camy);
+      } }
+      if (f.k !== 'areaflash') continue; const sx = Math.round(f.x - camx), sy = Math.round(f.y - camy);
+      // the whole area lights up white-violet, then fades
+        const k = f.t < 0.08 ? 1 : Math.pow(Math.max(0, 1 - (f.t - 0.08) / (f.life - 0.08)), 1.5); // ONE flash then a fade (no strobing - kinder to light-sensitive eyes)
+        const g = ctx.createRadialGradient(sx, sy - 10, 4, sx, sy - 10, f.r); g.addColorStop(0, 'rgba(255,255,255,' + (0.9 * k).toFixed(3) + ')'); g.addColorStop(0.5, 'rgba(214,190,255,' + (0.7 * k).toFixed(3) + ')'); g.addColorStop(1, 'rgba(160,120,255,0)');
+        ctx.fillStyle = g; ctx.fillRect(sx - f.r, sy - 10 - f.r, f.r * 2, f.r * 2);
+        ctx.fillStyle = 'rgba(235,225,255,' + (0.42 * k).toFixed(3) + ')'; ctx.fillRect(0, 0, G.W, G.H); // the whole screen blinks too
+      
     }
   };
   function line(x0, y0, x1, y1) { x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1); const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1; let e = dx + dy, n = 0; while (n++ < 400) { ctx.fillRect(x0, y0, 1, 1); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } } }

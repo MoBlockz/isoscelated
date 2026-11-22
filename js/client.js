@@ -141,7 +141,9 @@ const Game = {};
         G.addFx({ k: 'zap', x: e.x, y: e.y - 14, x2: e.x2, y2: e.y2 - 10, life: .45 }); G.addFx({ k: 'flash', x: e.x2, y: e.y2, life: .35 });
         const o = C.others.get(e.id); const lk = e.id === C.id ? lookOf(C.me.disp || C.id) : lookOf(o ? o.disp : e.id);
         G.addFx({ k: 'shrink', x: e.x2, y: e.y2, look: lk, life: .5 }); G.smoke(e.x2, e.y2, null, 22); G.sparkle(e.x2, e.y2, P.glow, 10);
-        Snd.sfx('hex'); if (o) o.vis = false; break;
+        // LIGHTNING: a bolt crashes down on the victim and the whole area flashes
+        G.addFx({ k: 'scorch', x: e.x2, y: e.y2, life: 3 }); G.addFx({ k: 'bolt', x: e.x2, y: e.y2 - 4, life: .4 }); G.addFx({ k: 'areaflash', x: e.x2, y: e.y2, r: 190, life: .9 });
+        C.shake = 0.3; Snd.sfx('hex'); Snd.sfx('thunder'); if (o) o.vis = false; break;
       }
       case 'poof': G.smoke(e.x, e.y, P.grey, 14); break;
       case 'hexed': C.hexedT = 0; Tasks.close(); C.overlay = null; C.holding = false;
@@ -357,6 +359,7 @@ const Game = {};
     const m = C.map, sab = C.snap && C.snap.sab;
     const mapW = m.w * T, mapH = m.h * T;
     if (mapW < G.W) camx = Math.round((mapW - G.W) / 2); if (mapH < G.H) camy = Math.round((mapH - G.H) / 2);
+    if (C.shake > 0) { C.shake -= dt; const a = Math.ceil(C.shake * 8); camx += Math.round((Math.random() - .5) * a); camy += Math.round((Math.random() - .5) * a); } // lightning rumble
     World.draw(m, camx, camy, { t, rattle: C.rattle, chuteWobble: C.wobble, jam: sab && sab.k === 'jam' ? sab.room : null, switches: sab && sab.k === 'lights', lights: sab && sab.sw, melt: sab && sab.k === 'melt' });
     // drawables sorted by y
     const list = [];
@@ -381,6 +384,7 @@ const Game = {};
     if (C.bubbles[C.id]) drawBubble(C.id, me.x, me.y);
     // darkness
     if (C.phase === 'play' && C.mine.alive) G.drawVision(me.x - camx, me.y - 10 - camy, C.vis);
+    G.drawAreaFlashes(camx, camy);
     if (iAmSpirit) { G.ctx.fillStyle = 'rgba(60,90,180,0.12)'; G.ctx.fillRect(0, 0, G.W, G.H); }
     // room name popup
     const rn = World.roomName(m, me.x, me.y);
