@@ -96,6 +96,7 @@ Each player can choose their music (Auto / one style only / Off) and set the mus
 Open `js/filter.js`. At the top are three easy-to-edit lists:
 
 - `BLOCKED_WORDS`: single words to block. Add a new word in quotes followed by a comma, for example `'meanword',`.
+- `BLOCKED_WHOLE_WORDS`: short words that should only be blocked on their own, because they also hide inside innocent words (like "ass" inside "class").
 - `BLOCKED_PHRASES`: whole phrases to block, for example `'go away loser',`.
 - `ALLOWED_WORDS`: innocent words that should never be blocked even though they contain a blocked word, for example `'scunthorpe',`.
 
