@@ -4,8 +4,8 @@
 const Game = {};
 (function () {
   const P = G.P, T = World.T;
-  const QUICK = ['Where are you?', 'Follow me!', "I'm doing tasks", 'Help!', 'Nice!', 'Over here!', 'Stick together!', 'I saw something!', '@thumbs', '@question', '@heart', '@laugh', '@shocked'];
-  Game.QUICK = QUICK;
+  const QUICK = World.QUICK;
+  const quickText = (q, who) => World.quickText(q, who ? nameOf(who) : null);
   const TYPE_NAME = { classic: 'CLASSIC', shift: 'SHAPESHIFTER', plant: 'PLANTER' };
   const TYPE_INFO = {
     classic: 'No special power, but a shorter Hex cooldown and a bigger vision circle.',
@@ -145,10 +145,11 @@ const Game = {};
       case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
       case 'lobby': C.over = null; break;
       case 'chat': if (C.muted.has(e.from)) break; C.chat.push({ ch: e.ch, from: e.from, text: e.text, t: performance.now() }); if (C.chat.length > 60) C.chat.shift(); C.chatFlash = 6; Snd.sfx('chat'); break;
-      case 'quick':
-        if (C.muted.has(e.from)) break; C.bubbles[e.from] = { q: e.q, t: 3.5 };
-        if (C.phase !== 'play') { C.chat.push({ ch: 'quick', from: e.from, text: QUICK[e.q], t: performance.now() }); }
+      case 'quick': {
+        if (C.muted.has(e.from)) break; C.bubbles[e.from] = { q: e.q, who: e.who, t: 4 };
+        const qe = QUICK[e.q]; C.chat.push({ ch: e.ch === 'all' ? 'quick' : e.ch, from: e.from, text: qe && qe.e ? '(' + qe.e + ')' : quickText(e.q, e.who), emote: qe && qe.e, t: performance.now() }); if (C.chat.length > 60) C.chat.shift();
         Snd.sfx('chat'); break;
+      }
       case 'reportlog': UI.say('REPORT about ' + e.name + ' (from ' + e.by + '). Last messages: ' + (e.msgs.length ? e.msgs.map(s => '"' + s + '"').join(' ') : '(none)') + '  You can kick them from the player list.'); break;
       case 'taskok': Snd.sfx('task'); break;
       case 'snd': Snd.sfx(e.s); break;
@@ -157,7 +158,8 @@ const Game = {};
   function oops() { C && (C.oopsT = performance.now()); UI.say("Oops! That message wasn't sent. Please keep chat kind.", { auto: 2.5, col: '#ffe8e8' }); Snd.sfx('error'); }
 
   // ---------- chat sending ----------
-  Game.openChat = function () {
+  Game.openChat = function () { if (C) { C.overlay = 'quick'; UI.eat('chat'); UI.eat('key:Enter'); UI.eat('ok'); } };
+  Game._oldTypedChat = function () {
     if (!C) return; const ch = chatChannel(); if (!ch) return;
     if (C.settings.chat !== 'full') { toast(C.settings.chat === 'off' ? 'Chat is off in this lobby.' : 'Quick Chat only in this lobby.'); return; }
     C.chatOpen = true;
@@ -181,7 +183,7 @@ const Game = {};
     const f = ChatFilter.check(text); if (!f.ok && f.reason !== 'empty') oops(); // instant feedback; the host checks again and counts the strike
     send({ t: 'c', ch, text: text.slice(0, 100) });
   }
-  Game.quick = function (q) { send({ t: 'q', q }); C.overlay = null; };
+  Game.quick = function (q, who) { send({ t: 'q', q, who: who || null, team: C.qTeam && C.myRole === 'hex' ? 1 : 0 }); C.overlay = null; };
 
   // ---------- local movement ----------
   function speedMul() { return (C.settings && C.settings.speed) || 1; }
@@ -314,8 +316,9 @@ const Game = {};
   function drawBubble(id, x, y) {
     const b = C.bubbles[id]; if (!b) return; const sx = Math.round(x - camx), sy = Math.round(y - camy) - 50;
     const q = QUICK[b.q]; if (!q) return;
-    if (q[0] === '@') { G.box(sx - 11, sy - 8, 22, 20, P.white); G.ctx.drawImage(G.emote(q.slice(1)), sx - 8, sy - 5, 16, 16); }
-    else { const w = q.length * 8 + 10; G.box(sx - w / 2, sy - 4, w, 16, P.white); G.text(q, sx, sy + 1, P.ink, { al: 'c' }); }
+    if (q.e) { G.box(sx - 11, sy - 8, 22, 20, P.white); G.ctx.drawImage(G.emote(q.e), sx - 8, sy - 5, 16, 16); }
+    else { const lines = G.wrap(quickText(b.q, b.who), 20), w = Math.max(...lines.map(l => l.length)) * 8 + 10, h = lines.length * 10 + 6, top = sy + 12 - h;
+      G.box(sx - w / 2, top, w, h, P.white); lines.forEach((l, i) => G.text(l, sx, top + 4 + i * 10, P.ink, { al: 'c' })); }
   }
   function drawWorld(dt, t) {
     const me = C.me;
@@ -471,9 +474,8 @@ const Game = {};
     // chat
     const cwid = Math.min(G.W - bw - 30 - (UI.isTouch ? 0 : 0), 300), ch = 56;
     const cx = UI.isTouch ? Math.max(100, G.W - bw - 12 - cwid) : 4;
-    drawChatLog(cx, G.H - ch - 22, cwid, ch, 5, { empty: C.settings.chat === 'off' ? 'Chat is off.' : 'Say hi!' });
-    let qx = cx; qx += smallBtn(qx, G.H - 20, 'CHAT', () => Game.openChat(), { disabled: C.settings.chat !== 'full' }) + 4;
-    smallBtn(qx, G.H - 20, 'QUICK', () => { C.overlay = 'quick'; });
+    drawChatLog(cx, G.H - ch - 22, cwid, ch, 5, { empty: C.settings.chat === 'off' ? 'Chat is off.' : 'Press QUICK CHAT to talk!' });
+    smallBtn(cx, G.H - 20, 'QUICK CHAT', () => { C.overlay = 'quick'; }, { disabled: C.settings.chat === 'off' });
     // use prompt
     const cx2 = context();
     if (cx2.use) { UI.action(G.W - 34, G.H - 34, 22, 'USE', () => doUse(cx2), { col: P.green, key: 'E' }); usePrompt(cx2); }
@@ -530,7 +532,7 @@ const Game = {};
     let rx = G.W - 4; rx -= 50; smallBtn(rx, 22, 'MENU', () => { C.overlay = 'pause'; });
     rx -= 42; smallBtn(rx, 22, 'MAP', () => { C.overlay = 'map'; });
     rx -= 58; smallBtn(rx, 22, 'QUICK', () => { C.overlay = 'quick'; });
-    const ch = chatChannel(); if (ch && C.settings.chat === 'full') { rx -= 50; smallBtn(rx, 22, 'CHAT', () => Game.openChat(), { col: ch === 'hex' ? P.pink : '#cfe0ff' }); }
+    const ch = chatChannel();
     // recent hex/spirit chat
     if (C.chat.length && (hex || !alive)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
     // action buttons (bottom-right)
@@ -565,7 +567,7 @@ const Game = {};
       if (UI.hit('sab') && hex && alive) openOv('sab', 'sab');
       if (UI.hit('map')) openOv('map', 'map');
       if (UI.hit('quick')) openOv('quick', 'quick');
-      if ((UI.hit('chat') || UI.hit('key:Enter')) && ch) Game.openChat();
+      if (UI.hit('chat') || UI.hit('key:Enter')) Game.openChat();
       if (UI.hit('back')) openOv('pause', 'back');
       if (UI.hit('tab')) C.showTasks = C.showTasks === false;
     }
@@ -604,16 +606,15 @@ const Game = {};
     });
     // bottom: chat + buttons
     const by = G.H - L.chatH - 4; const bwid = 76;
-    drawChatLog(4, by, G.W - bwid - 14, L.chatH, 6, { empty: myAlive ? 'Talk it over! Who is the Hexagoner?' : 'Spirit chat (only Spirits see this)' });
+    drawChatLog(4, by, G.W - bwid - 14, L.chatH, 6, { empty: myAlive ? 'Use QUICK CHAT: who is the Hexagoner?' : 'Spirit chat (only Spirits see this)' });
     let yy = by; const bx = G.W - bwid - 6;
     const ch = chatChannel();
-    UI.button(bx, yy, bwid, 16, 'CHAT', () => Game.openChat(), { nav: true, disabled: !ch || C.settings.chat !== 'full' }); yy += 19;
-    if (myAlive && C.myRole === 'hex') { UI.button(bx, yy, bwid, 16, C.chatCh === 'hex' ? 'TO: HEX' : 'TO: ALL', () => { C.chatCh = C.chatCh === 'hex' ? 'all' : 'hex'; }, { nav: true, col: C.chatCh === 'hex' ? P.pink : P.white }); yy += 19; }
-    UI.button(bx, yy, bwid, 16, 'QUICK', () => { C.overlay = 'quick'; }, { nav: true }); yy += 19;
+
+    UI.button(bx, yy, bwid, 30, '', () => { C.overlay = 'quick'; }, { nav: true, col: P.yellow, icon: (x, y) => { G.text('QUICK', x + bwid / 2, y + 5, P.ink, { al: 'c' }); G.text('CHAT', x + bwid / 2, y + 16, P.ink, { al: 'c' }); } }); yy += 34;
     if (M.st === 'vote' && myAlive && M.myVote == null) UI.button(bx, yy, bwid, 16, 'SKIP', () => Game.act('vote', { target: 'skip' }), { nav: true, col: P.light });
     else if (M.myVote === 'skip') G.text('SKIPPED', bx + bwid / 2, yy + 4, P.yellow, { al: 'c' });
     if (M.st === 'result' && C.eject) G.text('Skips: ' + (C.eject.skips || 0), bx + bwid / 2, yy + 4, P.white, { al: 'c' });
-    if (!UI.typing() && !C.overlay && UI.hit('key:Enter') && ch) Game.openChat();
+    if (!UI.typing() && !C.overlay && (UI.hit('key:Enter') || UI.hit('chat'))) Game.openChat();
     // dramatic encounter intro
     if (C.meetFx) C.meetFx.t = (performance.now() - C.meetFx.t0) / 1000;
     if (C.meetFx && C.meetFx.t < 2.6) { encounter(C.meetFx.t, C.meetFx.reason === 'bell' ? 'MEETING BELL!' : 'PIECE REPORTED!', C.meetFx.reason === 'bell' ? P.yellow : P.orange, C.meetFx); }
@@ -647,8 +648,8 @@ const Game = {};
       if (tt < 0.4) { G.smoke(bx + 120 + camx, by + 15 + camy, '#fff', 3); }
       const morphed = E.as && tt > 1.3; // after a moment in the air they transform
       if (E.as && tt > 1.3 && !E.flashed) { E.flashed = true; Snd.sfx('hex'); G.smoke(px + camx, py + camy, E.as === 'hex' ? P.hexred : P.glow, 26); G.sparkle(px + camx, py + camy, P.yellow, 12); }
-      let c = morphed ? (E.as === 'hex' ? G.charSprite(Object.assign({}, E.look, { shape: 9 }), 0, 0) : G.bodySprite(E.piece || 0, E.look)) : G.charSprite(E.look, 0, 0);
-      const spin = morphed ? 0 : Math.floor(tt * 6) * Math.PI / 2, sc = morphed ? 3 : 1;
+      let c = morphed ? (E.as === 'hex' ? G.hexagonSprite(E.look) : G.bodySprite(E.piece || 0, E.look)) : G.charSprite(E.look, 0, 0);
+      const spin = morphed ? 0 : Math.floor(tt * 6) * Math.PI / 2, sc = morphed ? (E.as === 'hex' ? 2 : 3) : 1;
       if (E.as && tt > 1.2 && tt < 1.45) { ctx.fillStyle = '#fff'; ctx.fillRect(Math.round(px) - 20, Math.round(py) - 26, 40, 44); }
       else { ctx.save(); ctx.translate(Math.round(px), Math.round(py)); ctx.rotate(spin);
         if (morphed && E.as === 'hex') { const r = redOutline(c); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(r, -c.width * sc / 2 + dx * sc, -c.height * sc / 2 + dy * sc, c.width * sc, c.height * sc); }
@@ -729,14 +730,8 @@ const Game = {};
     const o = C.overlay; if (!o) return;
     if (o === 'map') return drawMinimap(t);
     if (o === 'cams') return drawCams(t);
-    if (o === 'quick') {
-      const b = panel(300, 140, 'QUICK CHAT');
-      QUICK.forEach((q, i) => {
-        if (i < 8) { const col = i % 2, row = i >> 1; UI.button(b.x + 8 + col * (b.w - 16) / 2, b.y + 22 + row * 19, (b.w - 20) / 2, 16, q, () => Game.quick(i), { col: P.white }); }
-        else { const k = i - 8, bw = 30; UI.button(b.x + 8 + k * (bw + 6), b.y + b.h - 26, bw, 22, '', () => Game.quick(i), { icon: (x, y) => G.ctx.drawImage(G.emote(q.slice(1)), x + 7, y + 3, 16, 16) }); }
-      });
-      if (UI.hit('quick')) closeOverlay(); return;
-    }
+    if (o === 'quick') return drawQuick(t);
+    if (o === 'pickwho') return drawPickWho(t);
     if (o === 'sab') {
       const b = panel(240, 150, 'SABOTAGE'); const s = C.snap, cd = C.mine.sabCd || 0, busy = !!(s && s.sab);
       if (busy || cd > 0) G.text(busy ? 'A sabotage is already happening!' : 'Ready in ' + Math.ceil(cd) + 's', b.x + 10, b.y + 22, P.red);
@@ -777,6 +772,43 @@ const Game = {};
       UI.button(b.x + 10, b.y + 48, 90, 20, 'LEAVE', () => Game.toMenu(), { col: P.pink }); UI.button(b.x + b.w - 100, b.y + 48, 90, 20, 'STAY', () => closeOverlay()); return;
     }
     if (o === 'pause') return Game.drawPause(panel(240, C.practice ? 230 : 150, C.practice ? 'PRACTICE MENU' : 'MENU'));
+  }
+  // ---------- QUICK CHAT panel ----------
+  const QTABS = [['say', 'SAY'], ['agree', 'AGREE'], ['deny', 'DISAGREE'], ['who', 'WHO?'], ['emote', ':)']];
+  function drawQuick(t) {
+    const b = panel(Math.min(G.W - 8, 400), Math.min(G.H - 4, 196), 'QUICK CHAT');
+    const tab = C.qTab || 'say'; let x = b.x + 8;
+    QTABS.forEach(([k, lbl]) => { const w = lbl.length * 8 + 10; UI.button(x, b.y + 20, w, 16, lbl, () => { C.qTab = k; }, { nav: false, col: tab === k ? (k === 'agree' ? P.lime : k === 'deny' ? P.pink : P.yellow) : P.light }); x += w + 4; });
+    const items = QUICK.map((e, i) => [e, i]).filter(([e]) => e.c === tab), top = b.y + 42;
+    if (tab === 'emote') items.forEach(([e, i], k) => UI.button(b.x + 8 + k * 40, top, 34, 28, '', () => Game.quick(i), { icon: (bx, by) => G.ctx.drawImage(G.emote(e.e), bx + 9, by + 6, 16, 16) }));
+    else {
+      const two = tab === 'say' || tab === 'who', rows = two ? Math.ceil(items.length / 2) : items.length, rh = Math.min(two ? 19 : 26, Math.floor((b.y + b.h - top - (C.myRole === 'hex' ? 22 : 4)) / rows)), cw = two ? (b.w - 20) / 2 : b.w - 16;
+      items.forEach(([e, i], k) => {
+        const col = two ? k % 2 : 0, row = two ? k >> 1 : k, label = e.t.replace('{N}', '___'), maxc = Math.floor((cw - 8) / 8);
+        const wl = G.wrap(label, maxc), fit = wl.length === 1 || (wl.length === 2 && rh >= 23);
+        UI.button(b.x + 8 + col * (cw + 4), top + row * rh, cw, rh - 3, '', () => {
+          if (e.c === 'who') { C.qWho = i; C.whoFilter = ''; C.overlay = 'pickwho'; } else Game.quick(i);
+        }, { col: tab === 'agree' ? '#e6ffd6' : tab === 'deny' ? '#ffe3ee' : P.white, icon: (bx, by) => { const ls = fit ? wl : [label.slice(0, maxc - 1) + '.']; const ty = by + Math.max(4, Math.floor((rh - 3 - ls.length * 9) / 2) + 1); ls.forEach((l, n) => G.text(l, bx + cw / 2, ty + n * 9, P.ink, { al: 'c' })); } });
+      });
+    }
+    const live = C.phase === 'play' || C.phase === 'meeting';
+    if (live && C.myRole === 'hex' && C.mine.alive) UI.button(b.x + 8, b.y + b.h - 20, b.w - 16, 16, C.qTeam ? 'SEND TO: HEX TEAM ONLY' : 'SEND TO: EVERYONE', () => { C.qTeam = !C.qTeam; }, { nav: false, col: C.qTeam ? P.pink : P.light });
+    else if (live && !C.mine.alive) G.tiny('ONLY OTHER SPIRITS SEE THIS', b.x + b.w / 2, b.y + b.h - 10, P.dpurple, 'c');
+    if (UI.hit('quick')) closeOverlay();
+  }
+  // pick a player for "It's ___!" - tap a name, or type to search (only real players can be chosen)
+  function drawPickWho(t) {
+    const e = QUICK[C.qWho]; if (!e) { C.overlay = null; return; }
+    for (const k of UI.pressed) if (k.startsWith('key:') && k.length === 5 && /[a-z0-9 _.-]/i.test(k[4]) && (C.whoFilter || '').length < 12) C.whoFilter = (C.whoFilter || '') + k[4];
+    if (UI.hit('bksp')) C.whoFilter = (C.whoFilter || '').slice(0, -1);
+    const f = (C.whoFilter || '').toLowerCase(), list = C.roster.filter(p => !f || p.name.toLowerCase().includes(f));
+    const cols = Math.max(1, Math.floor((Math.min(G.W - 8, 400) - 16) / 96)), rows = Math.max(1, Math.ceil(list.length / cols));
+    const b = panel(cols * 96 + 16, Math.min(G.H - 4, rows * 20 + 62), e.t.replace('{N}', '___'));
+    G.text('Name: ' + (C.whoFilter || '') + ((t * 2 | 0) % 2 ? '_' : ''), b.x + 10, b.y + 22, P.dblue);
+    UI.button(b.x + b.w - 70, b.y + 18, 60, 14, 'TYPE', () => UI.ask('NAME:', C.whoFilter || '', 12, v => { if (v == null || !C) return; C.whoFilter = v; const m = C.roster.filter(p => p.name.toLowerCase().includes(v.toLowerCase())); if (m.length === 1) Game.quick(C.qWho, m[0].id); }), { nav: false });
+    list.forEach((p, i) => UI.button(b.x + 8 + (i % cols) * 96, b.y + 38 + Math.floor(i / cols) * 20, 92, 18, '', () => Game.quick(C.qWho, p.id), { icon: (x, y) => { miniFace(p.look, x + 4, y + 6); G.text(p.name.slice(0, 9), x + 16, y + 5, p.dead ? P.mid : P.ink); } }));
+    if (!list.length) G.text('No player with that name.', b.x + 10, b.y + 40, P.red);
+    if (UI.hit('key:Enter') && list.length === 1) Game.quick(C.qWho, list[0].id);
   }
   function drawPlayers() {
     const cols = Math.max(1, Math.floor((Math.min(G.W - 8, 400) - 16) / 120)), list = C.roster, rows = Math.ceil(list.length / cols);

@@ -154,7 +154,7 @@
     const set = (k, v) => { if (host) Server.setSetting(k, v); };
     const rng = (k, lo, hi, step) => d => set(k, Math.max(lo, Math.min(hi, S[k] + d * step)));
     const typeModes = ['random', 'classic', 'custom'], typeNames = { random: 'Random', classic: 'Classic only', custom: 'Pick types' };
-    const mt = [0, 5, 8, 10, 15], sp = [0.75, 1, 1.25, 1.5], rv = ['off', 'hex', 'full'], rvN = { off: 'Off', hex: 'Hex or not', full: 'Full + type' }, chm = ['full', 'quick', 'off'], chN = { full: 'Full Chat', quick: 'Quick only', off: 'Off' };
+    const mt = [0, 5, 8, 10, 15], sp = [0.75, 1, 1.25, 1.5], rv = ['off', 'hex', 'full'], rvN = { off: 'Off', hex: 'Hex or not', full: 'Full + type' }, chm = ['quick', 'off'], chN = { quick: 'Quick Chat', off: 'Off' };
     const rows = [
       ['Hexagoners', S.hexCount + (Server.hexValid(S.hexCount, n) ? '' : ' !'), d => set('hexCount', Math.max(1, Math.min(4, S.hexCount + d))), { warn: !Server.hexValid(S.hexCount, n) }],
       ['Hexagoner Types', typeNames[S.types], d => set('types', typeModes[cyc(typeModes.indexOf(S.types), 3, d)])],
@@ -164,7 +164,7 @@
       ['Shift duration', S.shiftDur + 's', rng('shiftDur', 10, 40, 5)], ['Shift cooldown', S.shiftCd + 's', rng('shiftCd', 15, 60, 5)], ['Discussion', S.discuss + 's', rng('discuss', 0, 120, 15)],
       ['Voting', S.vote + 's', rng('vote', 15, 180, 15)], ['Meeting Bells', String(S.bells), rng('bells', 0, 3, 1)], ['Match timer', S.matchTime ? S.matchTime + ' min' : 'Off', d => set('matchTime', mt[cyc(mt.indexOf(S.matchTime), 5, d)])],
       ['Player speed', S.speed + 'x', d => set('speed', sp[cyc(sp.indexOf(S.speed), 4, d)])], ['Tasks each', String(S.tasks), rng('tasks', 3, 8, 1)],
-      ['Reveal on eject', rvN[S.reveal], d => set('reveal', rv[cyc(rv.indexOf(S.reveal), 3, d)])], ['Chat mode', chN[S.chat], d => set('chat', chm[cyc(chm.indexOf(S.chat), 3, d)])]);
+      ['Reveal on eject', rvN[S.reveal], d => set('reveal', rv[cyc(rv.indexOf(S.reveal), 3, d)])], ['Chat', chN[S.chat] || 'Quick Chat', d => set('chat', chm[cyc(Math.max(0, chm.indexOf(S.chat)), 2, d)])]);
     const top = b.y + 22, vis = Math.floor((b.h - 50) / 14);
     const nb = UI.focus['ov'] | 0; let sc = Math.max(0, Math.min(rows.length - vis, nb - Math.floor(vis / 2)));
     if (C.scrollTo != null) sc = C.scrollTo;
@@ -190,8 +190,8 @@
     ['PLANTER', 'PLANT secretly curses a Shape (a purple mark only Hexagoners can see). The next Shape they walk near gets zapped... FROM the marked player! Now everyone thinks they did it.', 'plant'],
     ['SPIRITS', 'Turned into a chess piece? You become a Spirit! Float through walls, keep doing chores to help, chat with other Spirits, and RATTLE one object once per game as a hint.', 'spirit'],
     ['HOW TO WIN', 'SHAPES win by filling the chore bar or voting out every Hexagoner. HEXAGONERS win when they equal the Shapes, if the boiler melts down, or if the match timer runs out.', 'win'],
-    ['CONTROLS', 'Move: WASD/arrows or the D-pad. E = Use, Q = Hex, F = Special, R = Report, X = Sabotage, M = Map, C = Quick Chat, Enter = Chat, Esc = Menu.', 'keys'],
-    ['BE KIND!', 'Chat is filtered. Mean words, links and personal info (like your address, school or phone number) are blocked. Never share personal info. You can mute or report anyone by tapping them.', 'kind'],
+    ['CONTROLS', 'Move: WASD/arrows or the D-pad. E = Use, Q = Hex, F = Special, R = Report, X = Sabotage, M = Map, C = Quick Chat, C or Enter = Quick Chat, Esc = Menu.', 'keys'],
+    ['QUICK CHAT', 'Talk with QUICK CHAT (C or Enter): SAY, smart AGREE and DISAGREE comebacks, and WHO? to name a player, like "It\'s BLOB!". Nobody can type, so chat stays kind. Tap a player to mute or report them.', 'kind'],
   ];
   function drawHowto(dt) {
     UI.bg(t, '#1d2b3a', '#223447'); UI.group('help');

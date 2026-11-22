@@ -59,8 +59,7 @@ Playing alone? Try **PRACTICE**. You can walk the whole map, try every chore and
 | Report an object | R | RPT |
 | Sabotage (Hexagoners) | X | SAB |
 | Map | M | MAP |
-| Quick Chat wheel | C | QUICK |
-| Chat | Enter or T | CHAT |
+| Quick Chat | C, Enter or T | QUICK CHAT |
 | Menu / settings | Esc | MENU |
 
 ---
@@ -81,15 +80,24 @@ Each player can choose their music (Auto / one style only / Off) and set the mus
 
 ---
 
-## Chat safety
+## Chat: Quick Chat only
 
-- Every chat message **and** every player name goes through the filter in `js/filter.js`. The filter blocks swear words, insults, bullying phrases, adult words, drug and alcohol words, links, emails, phone numbers, addresses, and questions asking for personal info.
-- It also catches tricks like `b.a.d`, `b a d`, `b@d`, `baaaad`, and words hidden inside longer words. Innocent words like *class*, *grass*, *Scunthorpe* and *assassin* still work.
-- The **host's** game runs the filter, so a player can't get around it by changing their own copy of the game. Each player's device also checks first, so they see the "Oops!" message straight away.
-- 3 blocked messages = muted for 60 seconds. 6 = muted for the rest of the match (Quick Chat still works). The host gets a notice.
-- During normal gameplay Shapes can only use **Quick Chat**. Typed chat is open in the lobby, during meetings, for Spirits (only other Spirits can see it) and for the Hexagoner team (only they can see it).
-- Tap any player's portrait to **mute** them (just for you) or **report** them. A report shows the host that player's last 5 messages. The host can kick players, and kicked players can't rejoin with that code. **NEW CODE** makes a fresh code.
-- The host can set **Chat mode** to Full Chat, Quick Chat Only or Off.
+There is **no typing** in Isoscelated. Everyone talks with **Quick Chat** (press C or Enter, or tap QUICK CHAT). Because nobody can type, nobody can write anything mean or share personal info.
+
+- **SAY**: Where are you? Follow me! Help! Skip the vote? and more.
+- **AGREE**: smart geometry comebacks, like *"Your argument fits inside the equal angles of a square!"* or *"That adds up to a perfect 180 degrees!"*.
+- **DISAGREE**: like *"That does not fit inside Pythagoras's theorem!"* or *"That story has more holes than a donut!"*.
+- **WHO?**: name a player, like *"It's BLOB!"*, *"Vote BLOB!"* or *"I trust BLOB."*. Tap a name, or type to search. Only names of real players in the lobby can be sent.
+- **Emotes**: thumbs up, question mark, heart, laughing, shocked.
+
+Messages show as speech bubbles and in the chat box with each player's tiny portrait.
+- In gameplay, only players who can see you see your bubble.
+- Spirits only reach other Spirits.
+- Hexagoners can switch to **SEND TO: HEX TEAM ONLY**.
+
+The host can set **Chat** to *Quick Chat* or *Off*. Tap any player to **mute** them (just for you) or **report** them; a report shows the host their last 5 messages. The host can kick players, and kicked players can't rejoin with that code.
+
+**Player names** are still typed, so they go through the safety filter in `js/filter.js`, which blocks rude words, tricks like `b.a.d`, `b@d` and `baaad`, and personal info. The host checks names too, so nobody can sneak past it.
 
 ### Adding more blocked words
 

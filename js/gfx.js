@@ -202,7 +202,7 @@ const G = {};
     (u, v) => { const d = (u + .5 - 7) ** 2 + (v + .5 - 7) ** 2; return d <= 46 && d >= 6; }, // donut
     (u, v) => Math.abs(u + .5 - 7) + Math.abs(v + .5 - 7) * 1.0 <= 7.3, // diamond
     (u, v) => inPoly(u + .5, v + .5, starPts), // star
-    (u, v) => inPoly(u + .5, v + .5, hexPts), // hexagon
+    (u, v) => { const dv = Math.abs(v + .5 - 7); return v >= 1 && v <= 12 && Math.abs(u + .5 - 7) <= 7 - Math.max(0, dv - 0.5) * 0.62; }, // hexagon: flat top/bottom, 6 straight sides
     (u, v) => { if (u < 2 || u > 11) return false; if (v >= 5 && v <= 9) return true; const cy = v < 5 ? 5 : 9; return (u + .5 - 7) ** 2 + (v + .5 - cy) ** 2 <= 25.5; } // capsule
   ];
   const EYE_Y = [9, 5, 6, 8, 6, 8, 4, 6, 7, 6, 5];
@@ -375,6 +375,24 @@ const G = {};
   ];
   const objCache = {};
   G.objectSprite = function (i) { if (!objCache[i]) objCache[i] = fromGrid(OBJ_GRIDS[i], OP); return objCache[i]; };
+  // ---------- big, crisp HEXAGON (what an ejected Hexagoner turns into) ----------
+  const hexBig = {};
+  G.hexagonSprite = function (look) {
+    const key = look.color + ',' + look.pattern + ',' + look.eyes; if (hexBig[key]) return hexBig[key];
+    const W = 30, H = 26, [cv, x] = G.mk(W + 2, H + 2);
+    const col = G.BODY_COLORS[look.color % 18][1], dk = G.shade(col, 0.7), lt = G.shade(col, 1.3), pc = G.shade(col, 1.45);
+    const ins = (u, v) => v >= 0 && v < H && Math.abs(u + 0.5 - W / 2) <= W / 2 - Math.abs(v + 0.5 - H / 2) * 0.58; // flat top & bottom, 6 straight sides
+    for (let v = 0; v < H; v++) for (let u = 0; u < W; u++) {
+      if (!ins(u, v)) continue; let c = patternAt(look.pattern, u >> 1, v >> 1) ? pc : col;
+      if (!ins(u + 1, v) || !ins(u, v + 1)) c = dk; else if (!ins(u - 1, v) || !ins(u, v - 1)) c = lt;
+      x.fillStyle = c; x.fillRect(u + 1, v + 1, 1, 1);
+    }
+    const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
+    R(9, 9, 4, 6, '#fff'); R(19, 9, 4, 6, '#fff'); R(11, 11, 2, 4, P.ink); R(21, 11, 2, 4, P.ink); R(8, 7, 5, 1, P.ink); R(19, 7, 5, 1, P.ink); // angry eyes
+    R(13, 18, 6, 1, P.ink); R(12, 17, 1, 1, P.ink); R(19, 17, 1, 1, P.ink); // grin
+    return (hexBig[key] = G.outline(cv, P.ink));
+  };
+
   // ---------- chess-piece "bodies" ----------
   // A hexed player becomes a PAWN; after a while it turns into another piece (chosen by the host).
   // The piece keeps the player's body colour, pattern, eyes, hair, hat and extras so everyone can tell who it was.

@@ -7,7 +7,7 @@ const Server = {};
   const T = World.T;
   const DEF = {
     hexCount: 1, types: 'random', allowed: { classic: true, shift: true, plant: true }, hexCd: 30, plantCd: 30, markFade: 60, shiftDur: 20, shiftCd: 30,
-    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'full'
+    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick'
   };
   Server.DEF = DEF;
   Server.suggestHex = n => n <= 6 ? 1 : n <= 11 ? 2 : n <= 16 ? 3 : 4;
@@ -214,7 +214,7 @@ const Server = {};
       }
       case 'a': action(p, msg); break;
       case 'c': chat(p, msg.ch, String(msg.text || '')); break;
-      case 'q': quick(p, msg.q | 0); break;
+      case 'q': quick(p, msg.q | 0, msg.who, !!msg.team); break;
       case 'look': {
         if (st.phase !== 'lobby') return; p.look = sanitizeLook(msg.look); uniqueLook(p);
         if (msg.name != null) { const nm = ChatFilter.checkName(String(msg.name)); if (nm.ok) p.name = nm.name; else send(id, { t: 'e', k: 'oops', text: 'That name is not allowed. Please pick another name.' }); }
@@ -346,7 +346,7 @@ const Server = {};
     // what they turn into while flying: a HEXAGON if they were a Hexagoner, otherwise a chess piece.
     // (Only shown when the host's 'Reveal role on eject' setting is on, so it never leaks a secret.)
     const as = ej && st.settings.reveal !== 'off' ? (ej.role === 'hex' ? 'hex' : 'piece') : null;
-    sendAll({ t: 'e', k: 'eject', id: ej ? ej.id : null, text, counts, skips, as, piece: Math.floor(Math.random() * 6) });
+    sendAll({ t: 'e', k: 'eject', id: ej ? ej.id : null, text, counts, skips, as, piece: 0 }); // an ejected Shape becomes a PAWN
     if (ej) { ej.alive = false; ej.knownDead = true; ej.ejected = true; }
   }
   function endMeeting() {
@@ -397,7 +397,7 @@ const Server = {};
   }
   function chat(p, ch, text) {
     const now = performance.now();
-    if (st.settings.chat !== 'full') { send(p.id, { t: 'e', k: 'notice', text: st.settings.chat === 'off' ? 'Chat is turned off in this lobby.' : 'Only Quick Chat is allowed in this lobby.' }); return; }
+    send(p.id, { t: 'e', k: 'notice', text: 'Typing is turned off. Use Quick Chat!' }); return; // typed chat removed: Quick Chat only
     if (!ALLOWED_CH(p, ch)) return;
     if (p.muteMatch) { send(p.id, { t: 'e', k: 'notice', text: 'You are muted for the rest of this match. You can still use Quick Chat.' }); return; }
     if (now < p.muteUntil) { send(p.id, { t: 'e', k: 'notice', text: "You're muted for " + Math.ceil((p.muteUntil - now) / 1000) + 's.' }); return; }
@@ -417,12 +417,19 @@ const Server = {};
     const msg = { t: 'e', k: 'chat', ch, from: p.id, text: clean };
     sendAll(msg, recipients(p, ch));
   }
-  function quick(p, q) {
-    const now = performance.now(); if (now - p.lastChat < 900 || q < 0 || q > 20) return; p.lastChat = now;
-    const msg = { t: 'e', k: 'quick', from: p.id, q };
-    if (st.phase === 'lobby' || st.phase === 'over' || st.phase === 'meeting') { if (st.phase === 'meeting' && !p.alive) sendAll(msg, x => !x.alive); else sendAll(msg); return; }
-    if (!p.alive) { sendAll(msg, x => !x.alive); return; }
-    sendAll(msg, x => !x.alive || x === p || canSee(x, p.x, p.y));
+  function quick(p, q, who, team) {
+    const now = performance.now(), e = World.QUICK[q]; if (!e || now - p.lastChat < 900) return;
+    if (st.settings.chat === 'off') { send(p.id, { t: 'e', k: 'notice', text: 'Chat is turned off in this lobby.' }); return; }
+    if (p.muteMatch || now < p.muteUntil) { send(p.id, { t: 'e', k: 'notice', text: 'You are muted right now.' }); return; }
+    let whoId = null;
+    if (e.t && e.t.includes('{N}')) { const w = st.players.get(String(who)); if (!w) return; whoId = w.id; }
+    p.lastChat = now; p.chatLog.push(e.e ? '(' + e.e + ')' : World.quickText(q, whoId && st.players.get(whoId).name)); if (p.chatLog.length > 5) p.chatLog.shift();
+    const live = st.phase === 'play' || st.phase === 'meeting';
+    const msg = { t: 'e', k: 'quick', from: p.id, q, who: whoId, ch: 'all' };
+    if (live && team && p.role === 'hex' && p.alive) { msg.ch = 'hex'; sendAll(msg, x => x.role === 'hex' && x.alive); return; } // Hexagoner team only
+    if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive); return; } // Spirits only
+    if (st.phase !== 'play') { sendAll(msg); return; }
+    sendAll(msg, x => !x.alive || x === p || canSee(x, p.x, p.y)); // in play: only people who can see you
   }
 
   // ---------- bots (practice dummies / debug ?bots=N) ----------

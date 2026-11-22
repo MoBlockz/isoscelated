@@ -11,6 +11,33 @@ const World = {};
     matchtoys: 'Match 3 toys', gauge: 'Fill boiler', candy: 'Refill candy'
   };
   World.TASK_KEYS = Object.keys(World.TASKS);
+  // ---------- QUICK CHAT: the only way to talk (no typing = nothing mean can be typed) ----------
+  // c: tab. {N} = a player's name the sender picks (only real players in the lobby can be chosen).
+  World.QUICK = [
+    { c: 'say', t: 'Where are you?' }, { c: 'say', t: 'Follow me!' }, { c: 'say', t: "I'm doing chores" }, { c: 'say', t: 'Help!' },
+    { c: 'say', t: 'Over here!' }, { c: 'say', t: 'Stick together!' }, { c: 'say', t: 'I saw something!' }, { c: 'say', t: 'Nice!' },
+    { c: 'say', t: 'Skip the vote?' }, { c: 'say', t: 'I need more proof.' },
+    // approval: smart geometry comebacks
+    { c: 'agree', t: 'Your argument fits inside the equal angles of a square!' },
+    { c: 'agree', t: 'That adds up to a perfect 180 degrees!' },
+    { c: 'agree', t: "Right angle! You're right!" },
+    { c: 'agree', t: "That's parallel with my thinking!" },
+    { c: 'agree', t: 'Your logic checks out from every vertex!' },
+    { c: 'agree', t: 'Perfectly symmetrical reasoning!' },
+    // denial: smart geometry comebacks
+    { c: 'deny', t: "That does not fit inside Pythagoras's theorem!" },
+    { c: 'deny', t: "Your angles don't add up!" },
+    { c: 'deny', t: 'That story has more holes than a donut!' },
+    { c: 'deny', t: "That's not even a little bit congruent!" },
+    { c: 'deny', t: 'Sounds pretty obtuse to me!' },
+    { c: 'deny', t: "That's as pointless as a circle!" },
+    // who: pick (or type) a player's name
+    { c: 'who', t: "It's {N}!" }, { c: 'who', t: '{N} is sus!' }, { c: 'who', t: 'I trust {N}.' }, { c: 'who', t: 'Vote {N}!' },
+    { c: 'who', t: 'Where is {N}?' }, { c: 'who', t: 'I was with {N}.' }, { c: 'who', t: 'I saw {N} near the piece!' },
+    // pixel emotes
+    { c: 'emote', e: 'thumbs' }, { c: 'emote', e: 'question' }, { c: 'emote', e: 'heart' }, { c: 'emote', e: 'laugh' }, { c: 'emote', e: 'shocked' },
+  ];
+  World.quickText = (q, name) => { const e = World.QUICK[q]; if (!e) return ''; return e.e ? '' : e.t.replace('{N}', name || '???'); };
 
   function makeMap(w, h) { return { w, h, tiles: new Uint8Array(w * h), room: new Int8Array(w * h).fill(-1), solid: new Uint8Array(w * h), rooms: [], props: [], stations: [], doors: {}, chutes: [], cams: [], seats: [] }; }
   function carve(m, x, y, w, h, roomIdx) { for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) { m.tiles[j * m.w + i] = 1; if (roomIdx != null) m.room[j * m.w + i] = roomIdx; } }
