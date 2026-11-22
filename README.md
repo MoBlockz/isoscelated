@@ -2,7 +2,7 @@
 
 A retro pixel-art social-deduction game for **4 to 20 players**, played in the browser.
 
-You are living geometric shapes trapped in a giant floating **Toy Workshop**. Finish your chores to power the escape blimp. But hidden among you are the **HEXAGONERS**, who secretly zap players and turn them into everyday objects: teapots, lamps, rubber ducks, traffic cones, toasters and more. Work out who they are and vote them out of the blimp cannon before it's too late!
+You are living geometric shapes trapped in a giant floating **Toy Workshop**. Finish your chores to power the escape blimp. But hidden among you are the **HEXAGONERS**, who secretly zap players and turn them into **chess pieces**. A fresh victim becomes a **pawn**; about 30 seconds later it turns into a random other piece (knight, bishop, rook, queen or king). The piece keeps the player's colour, pattern, eyes, hat, hair and extras, so you can tell who it was. Work out who they are and vote them out of the blimp cannon before it's too late!
 
 - Works on **iPad, phones** (touch D-pad and big buttons) and **desktop** (keyboard and mouse).
 - **No accounts, no logins, no paid server.** It's just static files, so it runs on GitHub Pages for free.

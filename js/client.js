@@ -101,6 +101,8 @@ const Game = {};
     }
     for (const [id, o] of C.others) if (!seen.has(id)) o.vis = false;
     for (const b of s.b) if (!C.seenBodies.has(b[0])) { C.seenBodies.add(b[0]); C.popT = C.popT || {}; C.popT[b[0]] = 0; }
+    C.lastPiece = C.lastPiece || {};
+    for (const b of s.b) { const lp = C.lastPiece[b[0]]; if (lp != null && lp !== b[1]) { C.popT = C.popT || {}; C.popT[b[0]] = 0.25; G.smoke(b[2], b[3], P.glow, 12); G.sparkle(b[2], b[3], P.yellow, 6); Snd.sfx('puff'); } C.lastPiece[b[0]] = b[1]; }
     C.bodies = s.b;
     if (s.rt) for (const id of s.rt) if (!(C.rattle[id] > 0)) C.rattle[id] = 3;
   }
@@ -126,7 +128,7 @@ const Game = {};
       }
       case 'poof': G.smoke(e.x, e.y, P.grey, 14); break;
       case 'hexed': C.hexedT = 0; Tasks.close(); C.overlay = null; C.holding = false;
-        UI.say('ZAP! You were turned into a ' + G.OBJECTS[e.obj].toUpperCase() + '! You are now a Spirit. Float through walls, keep doing chores, chat with other Spirits, and use RATTLE once to drop a hint.'); break;
+        UI.say('ZAP! You were turned into a chess PAWN! You are now a Spirit. Float through walls, keep doing chores, chat with other Spirits, and use RATTLE once to drop a hint.'); break;
       case 'puff': G.smoke(e.x, e.y, '#d8d2e0', 16); G.smoke(e.x, e.y, P.grey, 8); Snd.sfx('puff'); break;
       case 'plant': G.sparkle(e.x, e.y, P.glow, 10); Snd.sfx('plant'); break;
       case 'wobble': C.wobble[e.i] = 1.2; Snd.sfx('chute'); break;
@@ -533,7 +535,7 @@ const Game = {};
       const spr = G.charSprite(e.look, 0, 0); ctx.globalAlpha = dead ? 0.45 : 1; ctx.drawImage(spr, cx + 1, cy + 3 - 12 + Math.max(0, h - 26)); ctx.globalAlpha = 1; ctx.restore();
       G.text(e.name.slice(0, Math.floor((w - 32) / 8)), cx + 30, cy + 5, dead ? P.dark : P.ink);
       if (e.hex) G.tiny('HEX' + (e.type ? ' ' + TYPE_NAME[e.type] : ''), cx + 30, cy + 15, P.dred);
-      if (dead) { G.tiny(e.left ? 'LEFT' : 'OBJECT', cx + 30, cy + h - 9, P.dark); G.rect(cx + 4, cy + h / 2, 22, 2, P.red); }
+      if (dead) { G.tiny(e.left ? 'LEFT' : 'PIECE', cx + 30, cy + h - 9, P.dark); G.rect(cx + 4, cy + h / 2, 22, 2, P.red); }
       if (C.muted.has(e.id)) G.tiny('MUTED', cx + w - 26, cy + 4, P.red);
       if (M.st === 'vote' && e.voted) { G.rect(cx + w - 30, cy + h - 12, 28, 10, P.yellow); G.tiny('VOTED', cx + w - 27, cy + h - 10, P.ink); }
       if (M.st === 'result' && C.eject && C.eject.counts) { const n = C.eject.counts[e.id] || 0; if (n) { G.rect(cx + w - 18, cy + 3, 16, 12, P.red); G.text(String(n), cx + w - 14, cy + 5, P.white); } }
@@ -555,7 +557,7 @@ const Game = {};
     if (!UI.typing() && !C.overlay && UI.hit('key:Enter') && ch) Game.openChat();
     // dramatic encounter intro
     if (C.meetFx) C.meetFx.t = (performance.now() - C.meetFx.t0) / 1000;
-    if (C.meetFx && C.meetFx.t < 2.6) { encounter(C.meetFx.t, C.meetFx.reason === 'bell' ? 'MEETING BELL!' : 'OBJECT REPORTED!', C.meetFx.reason === 'bell' ? P.yellow : P.orange, C.meetFx); }
+    if (C.meetFx && C.meetFx.t < 2.6) { encounter(C.meetFx.t, C.meetFx.reason === 'bell' ? 'MEETING BELL!' : 'PIECE REPORTED!', C.meetFx.reason === 'bell' ? P.yellow : P.orange, C.meetFx); }
     // eject cutscene
     if (C.eject && M.st === 'result') drawEject(dt, t);
   }
@@ -756,7 +758,7 @@ const Game = {};
       ctx.save(); ctx.beginPath(); ctx.rect(fx, fy, fw, fh); ctx.clip();
       ctx.drawImage(m.bg, cx, cy, fw, fh, fx, fy, fw, fh);
       const ents = [];
-      for (const b of C.bodies) ents.push([b[3], () => { const c = G.bodySprite(b[1], lookOf(b[0])); ctx.drawImage(c, fx + b[2] - cx - 13, fy + b[3] - cy - 30); }]);
+      for (const b of C.bodies) ents.push([b[3], () => { const c = G.bodySprite(b[1], lookOf(b[0])); ctx.drawImage(c, fx + b[2] - cx - 13, fy + b[3] - cy - c.height + 2); }]);
       for (const [id, o] of C.others) if (o.vis && !(o.fl & 1)) ents.push([o.y, () => G.drawChar(lookOf(o.disp), o.dir, o.mv ? 1 + (Math.floor(o.anim) % 2) : 0, fx + o.x - cx, fy + o.y - cy)]);
       ents.push([C.me.y, () => G.drawChar(lookOf(C.mine.shiftAs || C.id), C.me.dir, 0, fx + C.me.x - cx, fy + C.me.y - cy)]);
       ents.sort((a, b) => a[0] - b[0]).forEach(e => e[1]());

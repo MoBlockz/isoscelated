@@ -12,6 +12,7 @@ const Server = {};
   Server.DEF = DEF;
   Server.suggestHex = n => n <= 6 ? 1 : n <= 11 ? 2 : n <= 16 ? 3 : 4;
   Server.hexValid = (h, n) => h * 2 < n;
+  const PIECE_AGE = 30; // seconds before a pawn becomes a different piece
   const HEX_RANGE = 26, REPORT_RANGE = 34, USE_RANGE = 26, MARK_RANGE = 22, ARM_TIME = 1.5;
   const VIS = { shape: 92, hex: 108, dark: 38 };
   let st = null, timer = null, peer = null, oldPeers = [];
@@ -298,8 +299,8 @@ const Server = {};
     if (!v.alive) return; v.alive = false;
     if (v.shiftAs) { v.shiftAs = null; v.shiftT = 0; }
     v.hold = -1; v.camOn = false;
-    const obj = Math.floor(Math.random() * 10);
-    st.bodies.push({ id: v.id, obj, x: Math.round(v.x), y: Math.round(v.y), rep: !!reportable });
+    const obj = 0; // everyone starts as a PAWN, then later becomes another chess piece
+    st.bodies.push({ id: v.id, obj, later: 1 + Math.floor(Math.random() * 5), age: 0, x: Math.round(v.x), y: Math.round(v.y), rep: !!reportable });
     // marks on the victim fade, marks by the victim vanish
     st.marks = st.marks.filter(k => { if (k.target === v.id) { const pl = st.players.get(k.by); if (pl) pl.plantCd = st.settings.plantCd; return false; } return k.by !== v.id; });
     if (from) sendAll({ t: 'e', k: 'zap', x: from.x, y: from.y, x2: v.x, y2: v.y, id: v.id, obj }, q => q === v || canSee(q, v.x, v.y) || canSee(q, from.x, from.y));
@@ -473,6 +474,8 @@ const Server = {};
         if (!st.marks.some(k => k.by === p.id)) p.plantCd = Math.max(0, p.plantCd - dt);
         if (p.shiftT > 0) { p.shiftT -= dt; const tgt = st.players.get(p.shiftAs); if (p.shiftT <= 0 || !tgt) { p.shiftT = 0; p.shiftAs = null; p.shiftCd = S.shiftCd; puff(p); } }
       }
+      // pieces: a pawn turns into another chess piece after a while
+      for (const b of st.bodies) { b.age += dt; if (b.obj === 0 && b.age >= PIECE_AGE) b.obj = b.later; }
       // planter marks
       for (let i = st.marks.length - 1; i >= 0; i--) {
         const k = st.marks[i]; k.t += dt; const tg = st.players.get(k.target), pl = st.players.get(k.by);

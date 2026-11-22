@@ -367,14 +367,48 @@ const G = {};
   ];
   const objCache = {};
   G.objectSprite = function (i) { if (!objCache[i]) objCache[i] = fromGrid(OBJ_GRIDS[i], OP); return objCache[i]; };
-  // object body wearing the player's hat/hair (so others can recognise who it was)
+  // ---------- chess-piece "bodies" ----------
+  // A hexed player becomes a PAWN; after a while it turns into another piece (chosen by the host).
+  // The piece keeps the player's body colour, pattern, eyes, hair, hat and extras so everyone can tell who it was.
+  G.PIECES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king'];
+  const PIECE_GRIDS = [
+    ['.....####.....', '....######....', '....######....', '.....####.....', '....######....', '.....####.....', '.....####.....', '....######....', '...########...', '...########...', '..##########..', '.############.', '.############.'],
+    ['......##......', '.....####.....', '....######....', '...#######....', '..########....', '.##########...', '###########...', '##..#######...', '....#######...', '...########...', '...########...', '..##########..', '.############.', '.############.', '##############'],
+    ['......##......', '.....####.....', '....###s##....', '...####s###...', '...#####s##...', '...########...', '....######....', '.....####.....', '.....####.....', '....######....', '....######....', '...########...', '..##########..', '.############.', '##############'],
+    ['.##..####..##.', '.############.', '..##########..', '...########...', '...########...', '...########...', '...########...', '...########...', '...########...', '..##########..', '.############.', '.############.', '##############'],
+    ['.#...#..#...#.', '.##.##..##.##.', '.############.', '..##########..', '...########...', '....######....', '....######....', '.....####.....', '.....####.....', '....######....', '...########...', '..##########..', '.############.', '##############'],
+    ['......##......', '....######....', '......##......', '.....####.....', '...########...', '..##########..', '...########...', '....######....', '.....####.....', '.....####.....', '....######....', '...########...', '..##########..', '.############.', '##############'],
+  ];
+  // [eye row, neck row, eye x centre, facing dir]
+  const PIECE_FACE = [[1, 4, 13, 0], [3, 7, 11, 2], [5, 7, 13, 0], [4, 8, 13, 0], [4, 7, 13, 0], [5, 8, 13, 0]];
   const bodyCache = new Map();
-  G.bodySprite = function (objIdx, look) {
-    const key = objIdx + '|' + (look ? look.hair + ',' + look.hairColor + ',' + look.hat : '-');
+  G.bodySprite = function (piece, look) {
+    piece = Math.max(0, Math.min(5, piece | 0));
+    look = look || { shape: 0, color: 15, pattern: 0, hair: 8, hairColor: 0, hat: 0, eyes: 0, extra: 0 };
+    const key = piece + '|' + look.color + ',' + look.pattern + ',' + look.hair + ',' + look.hairColor + ',' + look.hat + ',' + look.eyes + ',' + look.extra;
     let c = bodyCache.get(key); if (c) return c;
-    const [cv, x] = G.mk(26, 32);
-    const o = G.objectSprite(objIdx); x.drawImage(o, 13 - 7, 31 - o.height);
-    if (look) { const hy = 31 - o.height + 2; drawHair(x, look, 0, 13, hy, 8); if (look.hat) drawHat(x, look, 0, hy - hairTop(look.hair) + (look.hair === 8 ? 0 : 2)); }
+    const [cv, x] = G.mk(26, 34);
+    const g = PIECE_GRIDS[piece], h = g.length, top = 33 - h, left = 6;
+    const col = G.BODY_COLORS[look.color % 18][1], dk = G.shade(col, 0.72), lt = G.shade(col, 1.3), pc = G.shade(col, look.color === 14 ? 0.82 : 1.45);
+    const ins = (u, v) => v >= 0 && v < h && u >= 0 && u < 14 && g[v][u] === '#';
+    const R = (a, b2, w, hh, cc) => { x.fillStyle = cc; x.fillRect(a, b2, w, hh); };
+    const [ey, ny, ex, fdir] = PIECE_FACE[piece], eyY = top + ey, neck = top + ny;
+    if (look.extra === 3) R(left + 2, neck, 10, h - ny - 1, P.red); // cape behind the piece
+    const hy = top + 1; drawHair(x, look, 1, 13, hy, 8); // hair sits BEHIND the piece so its chess shape stays clear
+    for (let v = 0; v < h; v++) for (let u = 0; u < 14; u++) {
+      const ch = g[v][u]; if (ch === 's') { R(left + u, top + v, 1, 1, dk); continue; } if (ch !== '#') continue;
+      let cc = col; if (patternAt(look.pattern, u, v)) cc = pc;
+      if (!ins(u + 1, v) || !ins(u, v + 1)) cc = dk; else if (!ins(u - 1, v) || !ins(u, v - 1)) cc = lt;
+      if (v === h - 1) cc = dk;
+      R(left + u, top + v, 1, 1, cc);
+    }
+    drawEyes(x, look, fdir, ex, eyY);
+    if (look.extra === 1) { const mx = fdir === 2 ? ex - 5 : ex - 3; R(mx, eyY + 3, fdir === 2 ? 4 : 6, 1, P.dbrown); }
+    if (look.extra === 2) { R(9, neck, 3, 3, P.red); R(14, neck, 3, 3, P.red); R(12, neck + 1, 2, 1, P.dred); }
+    if (look.extra === 4) { R(8, neck, 10, 2, P.teal); R(15, neck + 2, 2, 3, P.teal); }
+    if (look.extra === 5) R(17, neck + 1, 3, 5, P.brown);
+    if (look.extra === 6) { for (let i = -3; i <= 3; i++) R(13 + i, neck + (Math.abs(i) < 2 ? 2 : 1), 1, 1, i % 2 ? P.gold : P.yellow); R(12, neck + 3, 2, 2, P.gold); }
+    if (look.hat) drawHat(x, look, 0, hy - hairTop(look.hair) + (look.hair === 8 ? 0 : 2));
     c = outline(cv, P.ink); bodyCache.set(key, c); return c;
   };
 

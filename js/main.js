@@ -182,13 +182,13 @@
   const DUMMY = [{ shape: 1, color: 6, pattern: 0, hair: 2, hairColor: 0, hat: 0, eyes: 0, extra: 2 }, { shape: 2, color: 10, pattern: 2, hair: 4, hairColor: 2, hat: 0, eyes: 3, extra: 0 }, { shape: 9, color: 3, pattern: 0, hair: 0, hairColor: 0, hat: 0, eyes: 2, extra: 1 }, { shape: 0, color: 0, pattern: 1, hair: 3, hairColor: 4, hat: 1, eyes: 0, extra: 4 }];
   const PAGES = [
     ['WELCOME!', 'You are a living shape trapped in a giant floating Toy Workshop. Finish your chores to power the escape BLIMP! But watch out... some players are secretly HEXAGONERS.', 'intro'],
-    ['SHAPES', 'Walk to the yellow ! on your MAP and press USE to do chores. Found an object wearing a hat or hair? It was a player! Press REPORT. Or ring the MEETING BELL in the Blimp Dock.', 'tasks'],
+    ['SHAPES', 'Walk to the yellow ! on your MAP and press USE to do chores. Found a chess piece wearing a hat or hair? It was a player! Press REPORT. Or ring the MEETING BELL in the Blimp Dock.', 'tasks'],
     ['MEETINGS', 'Everyone meets at the table. First you DISCUSS, then you VOTE by tapping a player. The player with the most votes is shot out of the blimp cannon! A tie means nobody goes.', 'vote'],
-    ['HEXAGONERS', 'Hexagoners HEX nearby Shapes, turning them into objects like teapots and rubber ducks. They can SABOTAGE (lights out, boiler meltdown, jam doors) and sneak through secret TOY CHUTES.', 'hex'],
+    ['HEXAGONERS', 'Hexagoners HEX nearby Shapes, turning them into chess pieces! A new victim is a PAWN; after a while it becomes another piece. They can SABOTAGE (lights out, boiler meltdown, jam doors) and sneak through secret TOY CHUTES.', 'hex'],
     ['CLASSIC', 'The CLASSIC Hexagoner has no special power, but can Hex more often (5s shorter cooldown) and sees a bit further in the dark.', 'classic'],
     ['SHAPESHIFTER', 'SHIFT copies another player\'s whole look AND name for 20s. Hex in disguise and witnesses blame the wrong shape! Shifting makes a puff of smoke, so be careful who is watching.', 'shift'],
     ['PLANTER', 'PLANT secretly curses a Shape (a purple mark only Hexagoners can see). The next Shape they walk near gets zapped... FROM the marked player! Now everyone thinks they did it.', 'plant'],
-    ['SPIRITS', 'Turned into an object? You become a Spirit! Float through walls, keep doing chores to help, chat with other Spirits, and RATTLE one object once per game as a hint.', 'spirit'],
+    ['SPIRITS', 'Turned into a chess piece? You become a Spirit! Float through walls, keep doing chores to help, chat with other Spirits, and RATTLE one object once per game as a hint.', 'spirit'],
     ['HOW TO WIN', 'SHAPES win by filling the chore bar or voting out every Hexagoner. HEXAGONERS win when they equal the Shapes, if the boiler melts down, or if the match timer runs out.', 'win'],
     ['CONTROLS', 'Move: WASD/arrows or the D-pad. E = Use, Q = Hex, F = Special, R = Report, X = Sabotage, M = Map, C = Quick Chat, Enter = Chat, Esc = Menu.', 'keys'],
     ['BE KIND!', 'Chat is filtered. Mean words, links and personal info (like your address, school or phone number) are blocked. Never share personal info. You can mute or report anyone by tapping them.', 'kind'],
@@ -218,16 +218,16 @@
     else if (kind === 'hex' || kind === 'classic') {
       const hx = DUMMY[3]; ch(hx, cx - 40, 3, 0);
       if (k < .35) ch(DUMMY[1], cx + 20, 2, 0); else if (k < .45) { G.line && (ctx.fillStyle = P.glow); G.line(cx - 30, gy - 16, cx + 20, gy - 12); G.rect(cx + 8, gy - 30, 24, 30, '#fff'); }
-      else { const c = G.bodySprite(0, DUMMY[1]); ctx.drawImage(c, cx + 7, gy - 30); }
+      else { const c = G.bodySprite(k < .75 ? 0 : 4, DUMMY[1]); ctx.drawImage(c, cx + 7, gy - c.height + 2); }
       if (kind === 'classic') { G.text('COOLDOWN: ' + (k < .45 ? 25 : Math.ceil(25 - (k - .45) * 40)), cx, gy - h + 6, P.purple, { al: 'c' }); }
     }
     else if (kind === 'shift') { if (k < .4) ch(DUMMY[3], cx - 40, 3, 0); else ch(DUMMY[2], cx - 40, 3, 0); if (k > .37 && k < .5) for (let i = 0; i < 12; i++) G.rect(cx - 50 + ((i * 37 + t * 60) % 20), gy - 30 + ((i * 13) % 26), 3, 3, P.grey); ch(DUMMY[2], cx + 50, 2, 0); G.tiny(k < .4 ? 'HEXAGONER' : 'COPY!', cx - 40, gy - 44, P.hexred, 'c'); G.tiny('REAL', cx + 50, gy - 44, P.white, 'c'); }
     else if (kind === 'plant') {
       const mx = cx - 80 + Math.min(1, k * 1.6) * 100; ch(DUMMY[0], mx, 3); if (k < .62) { const by = gy - 46; G.rect(mx - 2, by, 5, 5, P.glow); G.rect(mx - 1, by + 1, 3, 3, '#fff'); }
-      if (k < .62) ch(DUMMY[1], cx + 40, 2, 0); else if (k < .7) { ctx.fillStyle = P.glow; G.line(mx, gy - 16, cx + 40, gy - 12); } else ctx.drawImage(G.bodySprite(2, DUMMY[1]), cx + 27, gy - 30);
+      if (k < .62) ch(DUMMY[1], cx + 40, 2, 0); else if (k < .7) { ctx.fillStyle = P.glow; G.line(mx, gy - 16, cx + 40, gy - 12); } else ctx.drawImage(G.bodySprite(0, DUMMY[1]), cx + 27, gy - 32);
       G.tiny('MARKED (CAN\'T TELL!)', mx, gy - 54, P.glow, 'c');
     }
-    else if (kind === 'spirit') { ctx.drawImage(G.bodySprite(1, DUMMY[0]), cx - 60, gy - 30); G.drawChar(DUMMY[0], 3, 0, cx + Math.sin(t) * 30, gy - 10 + Math.sin(t * 3) * 3, 0.5); }
+    else if (kind === 'spirit') { ctx.drawImage(G.bodySprite(3, DUMMY[0]), cx - 60, gy - 32); G.drawChar(DUMMY[0], 3, 0, cx + Math.sin(t) * 30, gy - 10 + Math.sin(t * 3) * 3, 0.5); }
     else if (kind === 'win') { const bx = cx - 100 + k * 200; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx, gy - h / 2, 32, 14, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx, gy - h / 2 - 1, 30, 12, 0, 0, 7); ctx.fill(); }
     else if (kind === 'keys') { ['W', 'A', 'S', 'D'].forEach((c, i) => { const x = cx - 60 + [1, 0, 1, 2][i] * 18, y = gy - 40 + [0, 1, 1, 1][i] * 18; G.box(x, y, 16, 16, P.white); G.text(c, x + 4, y + 4, P.ink); }); ['E', 'Q', 'F', 'R'].forEach((c, i) => { G.box(cx + 10 + i * 20, gy - 22, 16, 16, P.yellow); G.text(c, cx + 14 + i * 20, gy - 18, P.ink); }); }
     else if (kind === 'kind') { ch(DUMMY[0], cx - 30, 3, 0); ch(DUMMY[1], cx + 30, 2, 0); G.text('♥', cx - 4, gy - 50 - Math.abs(Math.sin(t * 3)) * 6, P.red); }
