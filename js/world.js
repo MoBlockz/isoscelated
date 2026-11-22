@@ -119,7 +119,7 @@ const World = {};
       hall: [['#d6cfc0', '#cdc5b4'], '#8b8174'], props: {}, quests: null, cams: ['Blimp Dock', 'Gear Hall', 'Candy Hall', 'Boiler Hall']
     },
     castle: {
-      name: 'Cube-a-lot Castle', flip: [1, 0],
+      name: 'Cube-a-lot Castle', flip: [1, 0], layout: { seed: 1171, cols: 4, rows: 3, empty: [0, 3], meet: 5, loops: 0.35 }, // a keep with towers
       names: ['Banner Hexhall', 'Blacksphere Smithy', 'Library Tri-tower', 'Trapezoid Treasury', 'Great Kite-chen', 'Throne Rhombus', 'Minstrel Oval', 'Watch Prism', 'Royal Stable-gon', 'Dun-cone'], goal: 'Finish your quests to lower the DRAWBRIDGE and escape.', win: 'The drawbridge came down! Everyone escaped!', centre: 'drawbridge',
       hall: [['#a9a39a', '#9c958b'], '#5e5a63'],
       rooms: [['Banner Hall', ['#b7a58a', '#a99678'], '#7a3b3b', 'plank'], ['Blacksmith', ['#8e8a86', '#827d79'], '#4d4a52', 'plate'], ['Library Tower', ['#9b8366', '#8e775b'], '#5b4636', 'carpet'],
@@ -130,7 +130,7 @@ const World = {};
       cams: ['Throne Room', 'Smithy Hall', 'Kitchen Hall', 'Dungeon Hall']
     },
     palace: {
-      name: 'Pentagoda Palace', flip: [0, 1],
+      name: 'Pentagoda Palace', flip: [0, 1], layout: { seed: 5150, cols: 5, rows: 3, empty: [0, 4, 10, 12, 14], meet: 7, loops: 0.25 }, // long and wide
       names: ['Koi Circle Garden', 'Water Wheel Ring', 'Scroll Cylibrary', 'Treasure Cube Vault', 'Tea-rapezoid Room', 'Great Hexa-hall', 'Taiko Cylinder', 'Pagoda Prism', 'Dojo-decagon', 'Bath Oval'], goal: 'Finish your tasks to launch the DRAGON BOAT and sail away.', win: 'The dragon boat set sail! Everyone escaped!', centre: 'dragonboat',
       hall: [['#d8c9a0', '#cdbd92'], '#7a2e2e'],
       rooms: [['Koi Garden', ['#a9d18e', '#9cc481'], '#3f6b3a', 'carpet'], ['Water Wheel Room', ['#c9b48d', '#bea880'], '#6b3a2a', 'plank'], ['Scroll Library', ['#d9c7a0', '#cdbb92'], '#7a2e2e', 'plank'],
@@ -141,7 +141,7 @@ const World = {};
       cams: ['Great Hall', 'Wheel Hall', 'Tea Hall', 'Bath Hall']
     },
     jurassic: {
-      name: 'Tri-ceratops Manor', flip: [1, 1],
+      name: 'Tri-ceratops Manor', flip: [1, 1], layout: { seed: 3003, cols: 4, rows: 4, empty: [1, 3, 8, 11, 12, 15], meet: 10, loops: 0.4 }, // sprawling
       names: ['Fossil Polygon Lab', 'Crane Cube', 'Map Parallelogram', 'Egg-lipse Nursery', 'Dino Kite-chen', 'Grand Hexa-hall', 'Music Rhombus', 'Look-octagon', 'Trophy Trapezoid', 'Volcan-cone Cellar'], goal: 'Finish your jobs to power the TIME MACHINE and escape.', win: 'The time machine fired up! Everyone escaped!', centre: 'timemachine',
       hall: [['#a7b58a', '#9aa87d'], '#4d3b2a'],
       rooms: [['Fossil Lab', ['#d8c7a0', '#ccbb92'], '#5c4630', 'tile'], ['Crane Room', ['#a39a8a', '#978e7e'], '#4a4035', 'plate'], ['Map Room', ['#b99a72', '#ad8e66'], '#4d3b2a', 'carpet'],
@@ -217,10 +217,108 @@ const World = {};
     return m;
   };
 
+  // ---------- generated layouts: every themed map gets its OWN floor plan ----------
+  // Room roles follow the Workshape (index = role): 0 pipes+chute, 1 gears+switch, 2 code+meltdown btn+chute, 3 yarn+sort+chute,
+  // 4 cupcake+candy+switch+chute, 5 MEETING (centrepiece, table, bell, compass), 6 music box, 7 cameras+keycard, 8 rings+toys+chute, 9 gauge+meltdown btn+chute.
+  const ROLE_ITEMS = [
+    [['pipes', 3, 'task', 'pipes'], ['paintcans', 2], ['easel', 2]],
+    [['gears', 4, 'task', 'gears'], ['lever', 1, 'switch', 0], ['conveyor', 4]],
+    [['desk', 3, 'task', 'code'], ['button', 1, 'melt', 1], ['shelf', 4], ['plant', 1]],
+    [['yarnbasket', 2, 'task', 'yarn'], ['blockbin', 2, 'task', 'sort'], ['crate', 2]],
+    [['oven', 2, 'task', 'cupcake'], ['candymachine', 2, 'task', 'candy'], ['lever', 1, 'switch', 1], ['counter', 4]],
+    null,
+    [['musicbox', 2, 'task', 'windbox'], ['piano', 3], ['drum', 1], ['drum', 1]],
+    [['console', 3, 'cams'], ['reader', 1, 'task', 'keycard']],
+    [['ringpeg', 1, 'task', 'rings'], ['toyshelf', 3, 'task', 'matchtoys'], ['conveyor', 4]],
+    [['boiler', 4, 'task', 'gauge'], ['button', 1, 'melt', 0], ['pipesv', 2]],
+  ];
+  const CHUTE_ROOMS = [0, 2, 3, 4, 8, 9];
+  World.genLayout = function (L) {
+    const R = mulberry(L.seed), SW = 19, SH = 17, w = L.cols * SW + 4, h = L.rows * SH + 4;
+    const m = makeMap(w, h); m.kind = 'workshop'; m.generated = true;
+    const slots = []; for (let i = 0; i < L.cols * L.rows; i++) if (!L.empty.includes(i)) slots.push(i);
+    if (slots.length !== 10) throw new Error('layout needs exactly 10 rooms');
+    // which room goes in which slot: the meeting hall in its slot, the rest shuffled by the seed
+    const roles = [0, 1, 2, 3, 4, 6, 7, 8, 9]; for (let i = roles.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [roles[i], roles[j]] = [roles[j], roles[i]]; }
+    const slotOf = {}; let ri = 0; for (const sl of slots) slotOf[sl === L.meet ? 5 : roles[ri++]] = sl;
+    for (let role = 0; role < 10; role++) {
+      const sl = slotOf[role], cx = sl % L.cols, cy = Math.floor(sl / L.cols), big = role === 5;
+      const rw = big ? SW - 2 : 11 + Math.floor(R() * 5), rh = big ? SH - 2 : 9 + Math.floor(R() * 4);
+      const x = 2 + cx * SW + Math.floor((SW - rw) / 2) + (big ? 0 : Math.floor((R() - 0.5) * (SW - rw - 2))), y = 2 + cy * SH + Math.floor((SH - rh) / 2) + (big ? 0 : Math.floor((R() - 0.5) * (SH - rh - 2)));
+      m.rooms[role] = { i: role, name: '', x, y, w: rw, h: rh, floor: ['#ccc', '#bbb'], wall: '#777', style: 'tile' };
+    }
+    m.rooms.forEach((r, i) => carve(m, r.x, r.y, r.w, r.h, i));
+    // corridors between neighbouring rooms: a random spanning tree + a few extra loops
+    const bySlot = {}; for (let role = 0; role < 10; role++) bySlot[slotOf[role]] = role;
+    const edges = []; for (const sl of slots) { const cx = sl % L.cols, cy = Math.floor(sl / L.cols); if (cx + 1 < L.cols && bySlot[sl + 1] != null) edges.push([bySlot[sl], bySlot[sl + 1], 'h']); if (cy + 1 < L.rows && bySlot[sl + L.cols] != null) edges.push([bySlot[sl], bySlot[sl + L.cols], 'v']); }
+    for (let i = edges.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [edges[i], edges[j]] = [edges[j], edges[i]]; }
+    const par = [...Array(10).keys()], find = a => par[a] === a ? a : (par[a] = find(par[a]));
+    const used = []; for (const e of edges) { if (find(e[0]) !== find(e[1])) { par[find(e[0])] = find(e[1]); used.push(e); } else if (R() < L.loops) used.push(e); }
+    const corridor = (a, b, dir) => {
+      const A = m.rooms[a], B = m.rooms[b];
+      if (dir === 'h') { // A is left of B
+        const lo = Math.max(A.y, B.y), hi = Math.min(A.y + A.h, B.y + B.h) - 3;
+        if (hi >= lo) { const y = lo + Math.floor(R() * (hi - lo + 1)); carve(m, A.x + A.w, y, B.x - (A.x + A.w), 3); }
+        else { const ay = A.y + Math.floor(A.h / 2) - 1, by = B.y + Math.floor(B.h / 2) - 1, mx = Math.floor((A.x + A.w + B.x) / 2) - 1; carve(m, A.x + A.w, ay, mx - (A.x + A.w) + 3, 3); carve(m, mx, Math.min(ay, by), 3, Math.abs(ay - by) + 3); carve(m, mx, by, B.x - mx, 3); }
+      } else { // A is above B
+        const lo = Math.max(A.x, B.x), hi = Math.min(A.x + A.w, B.x + B.w) - 3;
+        if (hi >= lo) { const x = lo + Math.floor(R() * (hi - lo + 1)); carve(m, x, A.y + A.h, 3, B.y - (A.y + A.h)); }
+        else { const ax = A.x + Math.floor(A.w / 2) - 1, bx = B.x + Math.floor(B.w / 2) - 1, my = Math.floor((A.y + A.h + B.y) / 2) - 1; carve(m, ax, A.y + A.h, 3, my - (A.y + A.h) + 3); carve(m, Math.min(ax, bx), my, Math.abs(ax - bx) + 3, 3); carve(m, bx, my, 3, B.y - my); }
+      }
+    };
+    if (new Set([...Array(10).keys()].map(find)).size !== 1) throw new Error('layout rooms are not all connected');
+    for (const e of used) corridor(e[0], e[1], e[2]);
+    // door cells
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) { const k = y * m.w + x; if (!m.tiles[k] || m.room[k] >= 0) continue; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const r = m.room[(y + dy) * m.w + x + dx]; if (r >= 0) { (m.doors[r] = m.doors[r] || []).push(k); break; } } }
+    // keep props away from doorways (2 tiles)
+    const reserved = new Uint8Array(m.w * m.h);
+    for (const r in m.doors) for (const k of m.doors[r]) { const dx0 = k % m.w, dy0 = (k / m.w) | 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) reserved[(dy0 + dy) * m.w + dx0 + dx] = 1; }
+    const free = (x, y, ww, hh, r) => { for (let j = y; j < y + hh; j++) for (let i = x; i < x + ww; i++) { const k = j * m.w + i; if (i < r.x || j < r.y || i >= r.x + r.w || j >= r.y + r.h || reserved[k] || m.solid[k]) return false; } return true; };
+    const block = (x, y, ww, hh) => { for (let j = y - 1; j <= y + hh; j++) for (let i = x - 1; i <= x + ww; i++) reserved[j * m.w + i] = 1; };
+    const place = (r, item) => { // top row first (stand below), then bottom row (stand above)
+      const [k, ww, kind, val] = item, hh = 1;
+      for (const row of ['top', 'bottom']) {
+        const y = row === 'top' ? r.y : r.y + r.h - 1, sy = row === 'top' ? y + 1 : y - 1;
+        const xs = []; for (let x = r.x; x + ww <= r.x + r.w; x++) xs.push(x); xs.sort(() => R() - 0.5);
+        for (const x of xs) {
+          if (!free(x, y, ww, hh, r)) continue; if (kind && !free(x + (ww >> 1), sy, 1, 1, r)) continue;
+          const p = prop(m, k, x, y, ww, hh); block(x, y, ww, hh);
+          if (kind) { const extra = kind === 'task' ? { task: val } : kind === 'switch' ? { sw: val } : kind === 'melt' ? { btn: val } : {}; station(m, kind, x + (ww >> 1), sy, extra); reserved[sy * m.w + x + (ww >> 1)] = 1; }
+          return p;
+        }
+      }
+      return null;
+    };
+    for (let role = 0; role < 10; role++) {
+      const r = m.rooms[role];
+      if (role === 5) { // meeting hall: centrepiece, table + bell, compass, plants
+        const bx = r.x + Math.floor((r.w - 14) / 2); prop(m, 'blimp', bx, r.y, 14, 3); block(bx, r.y, 14, 3);
+        const tx = r.x + Math.floor(r.w / 2) - 2, ty = r.y + Math.floor(r.h / 2); prop(m, 'table', tx, ty, 4, 3); block(tx - 4, ty - 3, 12, 9); station(m, 'bell', tx + 2, ty + 3.5);
+        place(r, ['compass', 1, 'task', 'compass']); place(r, ['plant', 1]); place(r, ['plant', 1]);
+        const cx = (tx + 2) * T, cy = (ty + 1.5) * T; m.spawn = [cx, cy + 50];
+        for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; m.seats.push([Math.round(cx + Math.cos(a) * 66), Math.round(cy + Math.sin(a) * 50)]); }
+        continue;
+      }
+      for (const item of ROLE_ITEMS[role]) place(r, item);
+      const ci = CHUTE_ROOMS.indexOf(role);
+      if (ci >= 0) { // toy chute near the bottom, standing spot just below it
+        let done = false; // try the bottom rows first, then any free spot in the room
+        for (let y = r.y + r.h - 2; y > r.y && !done; y--) for (let x = r.x + 1; x < r.x + r.w - 1 && !done; x++) if (free(x, y, 1, 2, r)) { prop(m, 'toybox', x, y, 1, 1, true, { chute: ci }); block(x, y, 1, 1); done = true; }
+        if (!done) throw new Error('no room for a toy chute in room ' + role);
+      }
+    }
+    // chute stations + cameras at corridor middles
+    m.props.filter(p => p.chute != null).sort((a, b) => a.chute - b.chute).forEach(p => m.chutes.push({ x: p.x * T + 8, y: p.y * T + 8 + 14, prop: p.id, room: m.room[p.y * m.w + p.x], i: p.chute }));
+    m.chutes.forEach(c => station(m, 'chute', 0, 0, { x: c.x, y: c.y, chute: c.i, room: c.room }));
+    const hallTiles = []; for (let k = 0; k < m.w * m.h; k++) if (m.tiles[k] && m.room[k] < 0) hallTiles.push(k);
+    m.cams = [{ name: '', x: m.spawn[0], y: m.spawn[1] }]; for (let i = 1; i < 4 && hallTiles.length; i++) { const k = hallTiles[Math.floor(hallTiles.length * i / 4)]; m.cams.push({ name: '', x: (k % m.w) * T + 8, y: Math.floor(k / m.w) * T + 8 }); }
+    return m;
+  };
+
   World.buildMap = function (id) {
     if (String(id).startsWith('maze:')) return World.buildMaze(+String(id).slice(5));
     const T2 = World.MAPS[id] ? id : 'workshop', th = World.MAPS[T2];
-    const m = flipMap(World.buildWorkshop(), th.flip[0], th.flip[1]);
+    const m = th.layout ? World.genLayout(th.layout) : flipMap(World.buildWorkshop(), th.flip[0], th.flip[1]);
     m.theme = T2; m.title = th.name; m.goal = th.goal; m.winText = th.win; m.quests = th.quests;
     m.hallFloor = th.hall[0]; m.hallWall = th.hall[1];
     if (th.rooms) th.rooms.forEach((r, i) => { Object.assign(m.rooms[i], { name: r[0], floor: r[1], wall: r[2], style: r[3] }); });
@@ -290,9 +388,39 @@ const World = {};
 
   // ---------- rendering: prerender floor+walls ----------
   function hash(x, y) { let h = x * 374761393 + y * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; }
+  // ---------- the space between rooms: a themed backdrop plus air ducts and vent grilles ----------
+  const BACKDROPS = {
+    workshop: { base: '#141a33', dots: ['#2a3466', '#f6e7a8'], cloud: '#1f2850', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
+    castle: { base: '#1d1a22', brick: '#2a2630', mortar: '#151218', duct: '#6b5a48', ductD: '#43382c', ductL: '#8f7b63' },
+    palace: { base: '#14122a', dots: ['#3a2f5a', '#f2a6c8'], cloud: '#1f1a3a', duct: '#7a3b34', ductD: '#4d2420', ductL: '#a85a4c' },
+    jurassic: { base: '#0f1d12', leaf: ['#16301b', '#1d3d22', '#24502b'], duct: '#5a5a40', ductD: '#3a3a28', ductL: '#7e7e5c' },
+    lobby: { base: '#1a1420', brick: '#241c2a', mortar: '#120e16', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
+    maze: { base: '#10200f', leaf: ['#1a3a1b', '#214a23', '#2b5a2c'], duct: '#4a5a40', ductD: '#2e3a28', ductL: '#6e7e5c' },
+  };
+  function drawBackdrop(m, x) {
+    const B = BACKDROPS[m.theme || (m.kind === 'lobby' ? 'lobby' : 'workshop')] || BACKDROPS.workshop, W = m.w * T, H = m.h * T;
+    x.fillStyle = B.base; x.fillRect(0, 0, W, H);
+    if (B.brick) { for (let y = 0; y < H; y += 8) for (let i = 0; i < W; i += 16) { x.fillStyle = B.brick; x.fillRect(i + ((y / 8) % 2 ? 8 : 0), y, 15, 7); } }
+    if (B.cloud) for (let i = 0; i < m.w * m.h / 40; i++) { const cx = hash(i, 7) * W, cy = hash(3, i) * H; x.fillStyle = B.cloud; x.fillRect(cx, cy, 40 + hash(i, i) * 40, 8); x.fillRect(cx + 10, cy - 5, 24, 6); }
+    if (B.dots) for (let i = 0; i < m.w * m.h / 6; i++) { x.fillStyle = hash(i, 1) < 0.85 ? B.dots[0] : B.dots[1]; x.fillRect((hash(i, 2) * W) | 0, (hash(5, i) * H) | 0, 1, 1); }
+    if (B.leaf) for (let i = 0; i < m.w * m.h / 2; i++) { x.fillStyle = B.leaf[i % 3]; const lx = (hash(i, 9) * W) | 0, ly = (hash(11, i) * H) | 0; x.fillRect(lx, ly, 5, 2); x.fillRect(lx + 1, ly - 1, 3, 4); }
+    // ducts: horizontal + vertical runs through empty space, with vent grilles along them
+    const empty = (tx, ty) => tx >= 0 && ty >= 0 && tx < m.w && ty < m.h && !m.tiles[ty * m.w + tx] && !nearFloor(m, tx, ty);
+    const duct = (px, py, horiz, len) => {
+      const w = horiz ? len : 8, h = horiz ? 8 : len;
+      x.fillStyle = B.ductD; x.fillRect(px, py, w, h); x.fillStyle = B.duct; x.fillRect(px + (horiz ? 0 : 1), py + (horiz ? 1 : 0), horiz ? w : 6, horiz ? 6 : h);
+      x.fillStyle = B.ductL; x.fillRect(px + (horiz ? 0 : 2), py + (horiz ? 2 : 0), horiz ? w : 1, horiz ? 1 : h);
+      for (let k = 6; k < len; k += 18) { x.fillStyle = B.ductD; horiz ? x.fillRect(px + k, py, 1, 8) : x.fillRect(px, py + k, 8, 1); }
+    };
+    const grille = (gx, gy) => { x.fillStyle = B.ductD; x.fillRect(gx - 1, gy - 1, 12, 10); x.fillStyle = '#0a0a10'; x.fillRect(gx, gy, 10, 8); x.fillStyle = B.ductL; for (let k = 1; k < 8; k += 2) x.fillRect(gx + 1, gy + k, 8, 1); x.fillStyle = B.duct; x.fillRect(gx, gy, 1, 1); x.fillRect(gx + 9, gy, 1, 1); x.fillRect(gx, gy + 7, 1, 1); x.fillRect(gx + 9, gy + 7, 1, 1); };
+    for (let ty = 1; ty < m.h - 1; ty += 6) { let run = 0; for (let tx = 0; tx <= m.w; tx++) { if (tx < m.w && empty(tx, ty)) { run++; continue; } if (run >= 5) { const sx = (tx - run) * T + 4, len = run * T - 8; duct(sx, ty * T + 4, true, len); for (let k = 24; k < len - 12; k += 56) grille(sx + k, ty * T + 3); } run = 0; } }
+    for (let tx = 3; tx < m.w - 1; tx += 9) { let run = 0; for (let ty = 0; ty <= m.h; ty++) { if (ty < m.h && empty(tx, ty)) { run++; continue; } if (run >= 5) { const sy = (ty - run) * T + 4, len = run * T - 8; duct(tx * T + 4, sy, false, len); for (let k = 30; k < len - 12; k += 64) grille(tx * T + 3, sy + k); } run = 0; } }
+  }
+  function nearFloor(m, tx, ty) { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = tx + dx, y = ty + dy; if (x >= 0 && y >= 0 && x < m.w && y < m.h && m.tiles[y * m.w + x]) return true; } return false; }
   World.prerender = function (m) {
     const [c, x] = G.mk(m.w * T, m.h * T);
     x.fillStyle = '#100c18'; x.fillRect(0, 0, c.width, c.height);
+    drawBackdrop(m, x); // themed background + vents in the empty space between rooms
     for (let ty = 0; ty < m.h; ty++) for (let tx = 0; tx < m.w; tx++) {
       const k = ty * m.w + tx, X = tx * T, Y = ty * T;
       if (m.tiles[k]) {

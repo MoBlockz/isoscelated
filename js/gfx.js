@@ -305,7 +305,10 @@ const G = {};
     if (e === 5) { const m = eyes[eyes.length - 1]; R(m - 1, ey - 1, 4, 1, P.gold); R(m - 1, ey + 3, 4, 1, P.gold); R(m - 1, ey - 1, 1, 5, P.gold); R(m + 2, ey - 1, 1, 5, P.gold); R(m + 2, ey + 4, 1, 3, P.gold); }
   }
   G.accColor = look => G.BODY_COLORS[(look.acc == null ? 0 : look.acc) % 18][1];
-  const lookKey = look => [look.shape, look.color, look.pattern, look.hair, look.hairColor, look.hat, look.eyes, look.extra, look.acc | 0].join(',');
+  // two cosmetics at once: extra (colour acc) + extra2 (colour acc2)
+  function hasX(look, n) { return (look.extra | 0) === n || (look.extra2 | 0) === n; }
+  function accOf(look, n) { return (look.extra2 | 0) === n && (look.extra | 0) !== n ? G.BODY_COLORS[(look.acc2 | 0) % 18][1] : G.accColor(look); }
+  const lookKey = look => [look.shape, look.color, look.pattern, look.hair, look.hairColor, look.hat, look.eyes, look.extra, look.acc | 0, look.extra2 | 0, look.acc2 | 0].join(',');
   G.lookKey = lookKey;
   const sprCache = new Map();
   // returns canvas for look/dir/frame (frame 0 idle, 1..2 walk)
@@ -315,16 +318,16 @@ const G = {};
     const [cv, x] = G.mk(SW, SH);
     const shp = Math.min(look.shape | 0, MASK.length - 1);
     const col = G.BODY_COLORS[look.color % 18][1], dk = G.shade(col, 0.72), lt = G.shade(col, 1.3), pc = G.shade(col, look.color === 14 ? 0.82 : 1.45);
-    const acc = G.accColor(look), accD = G.shade(acc, 0.7), accL = G.shade(acc, 1.25);
+    const A = n => accOf(look, n), AD = n => G.shade(A(n), 0.7), AL = n => G.shade(A(n), 1.25); // each extra has its own colour
     const m = masks[shp], bob = frame === 1 ? -1 : 0, side = dir === 2 || dir === 3, s = dir === 2 ? -1 : 1;
     const by = BY + bob;
     const R = (a, b, w, h, c2) => { x.fillStyle = c2; x.fillRect(a, b, w, h); };
     // cape BEHIND the body (front + side views): peeks out around you and flows behind
-    if (look.extra === 3 && dir === 0) { R(BX - 1, by + 4, 16, 11, acc); R(BX - 1, by + 13, 16, 2, accD); }
-    if (look.extra === 3 && side) { const cx0 = BX + 2 - s * 4; R(cx0, by + 4, 10, 11, acc); R(cx0 - s * 2, by + 9, 10, 6, acc); R(cx0 - s * 2, by + 13, 10, 2, accD); }
+    if (hasX(look, 3) && dir === 0) { R(BX - 1, by + 4, 16, 11, A(3)); R(BX - 1, by + 13, 16, 2, AD(3)); }
+    if (hasX(look, 3) && side) { const cx0 = BX + 2 - s * 4; R(cx0, by + 4, 10, 11, A(3)); R(cx0 - s * 2, by + 9, 10, 6, A(3)); R(cx0 - s * 2, by + 13, 10, 2, AD(3)); }
     // cane held at your side (behind the body in the back view)
-    const cane = () => { const hx = dir === 1 ? BX - 3 : side ? (s > 0 ? BX + 14 : BX - 3) : BX + 15; R(hx, by + 6, 1, 13 - bob, acc); R(hx, by + 6, 3, 1, acc); R(hx + 2, by + 7, 1, 2, acc); R(hx, by + 10, 1, 1, accL); R(hx, by + 14, 1, 1, accL); };
-    if (look.extra === 7 && dir === 1) cane();
+    const cane = () => { const hx = dir === 1 ? BX - 3 : side ? (s > 0 ? BX + 14 : BX - 3) : BX + 15; R(hx, by + 6, 1, 13 - bob, A(7)); R(hx, by + 6, 3, 1, A(7)); R(hx + 2, by + 7, 1, 2, A(7)); R(hx, by + 10, 1, 1, AL(7)); R(hx, by + 14, 1, 1, AL(7)); };
+    if (hasX(look, 7) && dir === 1) cane();
     // feet
     const fy = BY + 14; x.fillStyle = P.ink;
     const fo = frame === 1 ? [-1, 1] : frame === 2 ? [1, -1] : [0, 0];
@@ -342,20 +345,20 @@ const G = {};
       pset(x, c2, BX + u, by + v);
     }
     // cape seen from BEHIND: it hangs over your back like a backpack does
-    if (look.extra === 3 && dir === 1) { R(BX + 1, by + 3, 12, 12, acc); R(BX + 1, by + 3, 12, 1, accL); R(BX + 3, by + 5, 1, 9, accD); R(BX + 10, by + 5, 1, 9, accD); R(BX + 1, by + 13, 12, 2, accD); R(BX + 5, by + 2, 4, 1, P.gold); }
+    if (hasX(look, 3) && dir === 1) { R(BX + 1, by + 3, 12, 12, A(3)); R(BX + 1, by + 3, 12, 1, AL(3)); R(BX + 3, by + 5, 1, 9, AD(3)); R(BX + 10, by + 5, 1, 9, AD(3)); R(BX + 1, by + 13, 12, 2, AD(3)); R(BX + 5, by + 2, 4, 1, P.gold); }
     const hd = HEAD[shp];
     const ey = by + EYE_Y[shp], ex = 13 + EYE_DX[shp];
-    if (look.extra === 5) { if (dir === 1) { R(8, by + 5, 10, 8, P.brown); R(9, by + 7, 8, 2, P.tan); R(12, by + 10, 2, 2, P.gold); } else if (side) R(13 - s * 7 - (s > 0 ? 1 : 0), by + 5, 3, 8, P.brown); else { R(8, by + 5, 1, 6, P.dbrown); R(17, by + 5, 1, 6, P.dbrown); } }
+    if (hasX(look, 5)) { if (dir === 1) { R(8, by + 5, 10, 8, P.brown); R(9, by + 7, 8, 2, P.tan); R(12, by + 10, 2, 2, P.gold); } else if (side) R(13 - s * 7 - (s > 0 ? 1 : 0), by + 5, 3, 8, P.brown); else { R(8, by + 5, 1, 6, P.dbrown); R(17, by + 5, 1, 6, P.dbrown); } }
     drawEyes(x, look, dir, ex, ey);
     if (dir !== 1) {
-      if (look.extra === 1) { const mx = side ? ex + s * 3 - 2 : ex - 3; R(mx, ey + 4, side ? 4 : 6, 1, P.dbrown); R(mx - 1, ey + 5, 1, 1, P.dbrown); R(mx + (side ? 4 : 6), ey + 5, 1, 1, P.dbrown); }
+      if (hasX(look, 1)) { const mx = side ? ex + s * 3 - 2 : ex - 3; R(mx, ey + 4, side ? 4 : 6, 1, P.dbrown); R(mx - 1, ey + 5, 1, 1, P.dbrown); R(mx + (side ? 4 : 6), ey + 5, 1, 1, P.dbrown); }
       else if (look.eyes !== 6 && look.eyes !== 4) { const mx = side ? ex + s * 3 : ex - 1; R(mx, ey + 5, 2, 1, P.ink); }
-      if (look.extra === 2) { R(ex - 3, by + 12, 2, 3, acc); R(ex + 1, by + 12, 2, 3, acc); R(ex - 1, by + 13, 2, 1, accD); }
-      if (look.extra === 6) { for (let i = -3; i <= 3; i++) R(ex + i - (i < 0 ? 0 : 1), by + 10 + Math.abs(i) * -0.5 + 2, 1, 1, i % 2 ? P.gold : P.yellow); R(ex - 1, by + 13, 2, 2, P.gold); }
-      if (look.extra === 3 && dir === 0) { R(ex - 3, by + 3, 6, 1, acc); R(ex - 1, by + 4, 2, 1, P.gold); } // cape collar + clasp
+      if (hasX(look, 2)) { R(ex - 3, by + 12, 2, 3, A(2)); R(ex + 1, by + 12, 2, 3, A(2)); R(ex - 1, by + 13, 2, 1, AD(2)); }
+      if (hasX(look, 6)) { for (let i = -3; i <= 3; i++) R(ex + i - (i < 0 ? 0 : 1), by + 10 + Math.abs(i) * -0.5 + 2, 1, 1, i % 2 ? P.gold : P.yellow); R(ex - 1, by + 13, 2, 2, P.gold); }
+      if (hasX(look, 3) && dir === 0) { R(ex - 3, by + 3, 6, 1, A(3)); R(ex - 1, by + 4, 2, 1, P.gold); } // cape collar + clasp
     }
-    if (look.extra === 4) { R(BX + 2, by + 9, 10, 2, acc); R(BX + 2, by + 10, 10, 1, accD); if (dir !== 1) R(ex + 2, by + 11, 2, 4, acc); }
-    if (look.extra === 7 && dir !== 1) cane();
+    if (hasX(look, 4)) { R(BX + 2, by + 9, 10, 2, A(4)); R(BX + 2, by + 10, 10, 1, AD(4)); if (dir !== 1) R(ex + 2, by + 11, 2, 4, A(4)); }
+    if (hasX(look, 7) && dir !== 1) cane();
     // hair + hat, fitted to the head of THIS shape
     const hy = by + hd.top + 1, hx = BX + hd.cx;
     drawHair(x, look, dir, hx, hy, hd.w);
@@ -416,7 +419,7 @@ const G = {};
   };
   // portrait (front, idle) scaled
   G.portrait = function (look, x, y, sc) { const c = G.charSprite(look, 0, 0); ctx.drawImage(c, x, y, c.width * (sc || 1), c.height * (sc || 1)); };
-  G.randomLook = function () { const r = n => Math.floor(Math.random() * n); return { shape: r(G.SHAPES.length), color: r(18), pattern: Math.random() < .6 ? 0 : r(4), hair: r(10), hairColor: r(10), hat: Math.random() < .4 ? 0 : r(9), eyes: r(G.EYES.length), extra: Math.random() < .3 ? 0 : r(G.EXTRAS.length), acc: r(18) }; };
+  G.randomLook = function () { const r = n => Math.floor(Math.random() * n); return { shape: r(G.SHAPES.length), color: r(18), pattern: Math.random() < .6 ? 0 : r(4), hair: r(10), hairColor: r(10), hat: Math.random() < .4 ? 0 : r(9), eyes: r(G.EYES.length), extra: Math.random() < .3 ? 0 : r(G.EXTRAS.length), acc: r(18), extra2: Math.random() < .6 ? 0 : r(G.EXTRAS.length), acc2: r(18) }; };
 
   // ---------- object sprites (the "bodies") ----------
   const OP = { k: P.ink, w: P.white, l: P.light, g: P.grey, m: P.mid, r: P.red, R: P.dred, o: P.orange, y: P.yellow, Y: P.gold, b: P.blue, B: P.dblue, s: P.sky, n: P.brown, N: P.dbrown, t: P.tan, c: P.cream, e: P.green, E: P.dgreen, p: P.pink, u: P.purple, d: P.dark };
@@ -457,8 +460,11 @@ const G = {};
       x.fillStyle = c; x.fillRect(u + 1, v + 1, 1, 1);
     }
     const R = (a, b, w, h, c) => { x.fillStyle = c; x.fillRect(a, b, w, h); };
-    R(9, 9, 4, 6, '#fff'); R(19, 9, 4, 6, '#fff'); R(11, 11, 2, 4, P.ink); R(21, 11, 2, 4, P.ink); R(8, 7, 5, 1, P.ink); R(19, 7, 5, 1, P.ink); // angry eyes
-    R(13, 18, 6, 1, P.ink); R(12, 17, 1, 1, P.ink); R(19, 17, 1, 1, P.ink); // grin
+    // ANGRY face: slanted brows, glaring red eyes, scowl with gritted teeth
+    R(9, 10, 5, 5, '#fff'); R(18, 10, 5, 5, '#fff'); R(11, 11, 2, 3, P.hexred); R(19, 11, 2, 3, P.hexred); R(11, 12, 1, 1, P.ink); R(20, 12, 1, 1, P.ink);
+    for (let i = 0; i < 6; i++) { R(8 + i, 6 + Math.floor(i / 1.5), 1, 2, P.ink); R(23 - i, 6 + Math.floor(i / 1.5), 1, 2, P.ink); } // brows slope down to the middle
+    R(12, 18, 8, 4, P.ink); R(13, 19, 6, 2, '#fff'); R(15, 19, 1, 2, P.ink); R(17, 19, 1, 2, P.ink); R(11, 21, 1, 1, P.ink); R(20, 21, 1, 1, P.ink); // gritted-teeth frown
+    R(6, 15, 3, 2, G.shade(P.hexred, 1.2)); R(23, 15, 3, 2, G.shade(P.hexred, 1.2)); // cross red cheeks
     return (hexBig[key] = G.outline(cv, P.ink));
   };
 
@@ -488,7 +494,7 @@ const G = {};
     const ins = (u, v) => v >= 0 && v < h && u >= 0 && u < 14 && g[v][u] === '#';
     const R = (a, b2, w, hh, cc) => { x.fillStyle = cc; x.fillRect(a, b2, w, hh); };
     const [ey, ny, ex, fdir] = PIECE_FACE[piece], eyY = top + ey, neck = top + ny;
-    if (look.extra === 3) R(left + 2, neck, 10, h - ny - 1, P.red); // cape behind the piece
+    if (hasX(look, 3)) R(left + 2, neck, 10, h - ny - 1, P.red); // cape behind the piece
     const hy = top + 1; drawHair(x, look, 1, 13, hy, 8); // hair sits BEHIND the piece so its chess shape stays clear
     for (let v = 0; v < h; v++) for (let u = 0; u < 14; u++) {
       const ch = g[v][u]; if (ch === 's') { R(left + u, top + v, 1, 1, dk); continue; } if (ch !== '#') continue;
@@ -498,11 +504,11 @@ const G = {};
       R(left + u, top + v, 1, 1, cc);
     }
     drawEyes(x, look, fdir, ex, eyY);
-    if (look.extra === 1) { const mx = fdir === 2 ? ex - 5 : ex - 3; R(mx, eyY + 3, fdir === 2 ? 4 : 6, 1, P.dbrown); }
-    if (look.extra === 2) { R(9, neck, 3, 3, P.red); R(14, neck, 3, 3, P.red); R(12, neck + 1, 2, 1, P.dred); }
-    if (look.extra === 4) { R(8, neck, 10, 2, P.teal); R(15, neck + 2, 2, 3, P.teal); }
-    if (look.extra === 5) R(17, neck + 1, 3, 5, P.brown);
-    if (look.extra === 6) { for (let i = -3; i <= 3; i++) R(13 + i, neck + (Math.abs(i) < 2 ? 2 : 1), 1, 1, i % 2 ? P.gold : P.yellow); R(12, neck + 3, 2, 2, P.gold); }
+    if (hasX(look, 1)) { const mx = fdir === 2 ? ex - 5 : ex - 3; R(mx, eyY + 3, fdir === 2 ? 4 : 6, 1, P.dbrown); }
+    if (hasX(look, 2)) { R(9, neck, 3, 3, P.red); R(14, neck, 3, 3, P.red); R(12, neck + 1, 2, 1, P.dred); }
+    if (hasX(look, 4)) { R(8, neck, 10, 2, P.teal); R(15, neck + 2, 2, 3, P.teal); }
+    if (hasX(look, 5)) R(17, neck + 1, 3, 5, P.brown);
+    if (hasX(look, 6)) { for (let i = -3; i <= 3; i++) R(13 + i, neck + (Math.abs(i) < 2 ? 2 : 1), 1, 1, i % 2 ? P.gold : P.yellow); R(12, neck + 3, 2, 2, P.gold); }
     if (look.hat) drawHat(x, look, 0, hy - hairTop(look.hair) + (look.hair === 8 ? 0 : 2));
     c = outline(cv, P.ink); bodyCache.set(key, c); return c;
   };

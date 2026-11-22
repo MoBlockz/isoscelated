@@ -6,7 +6,16 @@ const Tasks = {};
   let cur = null; // {kind, st, onDone, t, doneT}
   Tasks.active = () => !!cur;
   Tasks.kind = () => cur && cur.kind;
-  Tasks.open = function (kind, onDone) { cur = { kind, st: {}, onDone, t: 0, doneT: -1 }; GAMES[kind].init(cur.st); Snd.sfx('select'); UI.eat('use'); UI.eat('ok'); };
+  // every map has its own mini-game look; every task type has its own title colour
+  const THEMES = {
+    workshop: { panel: '#f3ead8', tex: 'grid', texC: '#e6dbc3', cols: [P.red, P.blue, P.yellow] },
+    castle: { panel: '#ddd3c2', tex: 'brick', texC: '#cfc3ae', cols: ['#b8322f', '#2c3f8f', '#d4a017'] },
+    palace: { panel: '#f3e9cf', tex: 'tatami', texC: '#e3d6b0', cols: ['#d8333f', '#3f8a4a', '#f07fb8'] },
+    jurassic: { panel: '#e2ecc8', tex: 'leaf', texC: '#cfdcae', cols: ['#d8612f', '#2f8f86', '#8fbf2f'] },
+  };
+  const BAND = { pipes: '#4471d9', gears: '#6b6f8a', code: '#2c3f8f', yarn: '#c94f7c', sort: '#8a5a3b', cupcake: '#f08bbf', compass: '#3cb3a7', windbox: '#8b55c9', keycard: '#3f7d78', rings: '#f08a3c', matchtoys: '#c4973a', gauge: '#9c2f3a', candy: '#e0504c' };
+  let TH = THEMES.workshop;
+  Tasks.open = function (kind, onDone) { const C = Game.C && Game.C(); TH = THEMES[C && C.map && C.map.theme] || THEMES.workshop; cur = { kind, st: {}, onDone, t: 0, doneT: -1 }; GAMES[kind].init(cur.st); Snd.sfx('select'); UI.eat('use'); UI.eat('ok'); };
   Tasks.close = function () { cur = null; };
   const rnd = n => Math.floor(Math.random() * n);
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1);[a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -30,7 +39,7 @@ const Tasks = {};
   const GAMES = {
     pipes: {
       title: 'Connect the paint pipes!',
-      init(s) { s.cols = [P.red, P.blue, P.yellow]; s.right = shuffle([0, 1, 2]); s.done = [false, false, false]; s.drag = -1; },
+      init(s) { s.cols = TH.cols.slice(); s.right = shuffle([0, 1, 2]); s.done = [false, false, false]; s.drag = -1; },
       draw(s, x, y, w, h) {
         const lx = x + 20, rx = x + w - 20; const yy = i => y + 30 + i * (h - 50) / 2;
         G.rect(x + 8, y + 20, 14, h - 30, P.mid); G.rect(x + w - 22, y + 20, 14, h - 30, P.mid);
@@ -74,7 +83,7 @@ const Tasks = {};
       title: 'Tap the knots to untangle the yarn!',
       init(s) { s.k = []; for (let i = 0; i < 6; i++) s.k.push({ u: .15 + Math.random() * .7, v: .2 + Math.random() * .6, on: true }); s.seed = Math.random() * 9; },
       draw(s, x, y, w, h) {
-        const ctx = G.ctx; ctx.fillStyle = P.red;
+        const ctx = G.ctx; ctx.fillStyle = TH.cols[0];
         for (let i = 0; i < 300; i++) { const a = i * 0.21 + s.seed, rr = 20 + 30 * Math.sin(i * 0.13 + s.seed); const px = x + w / 2 + Math.cos(a) * rr * 1.6, py = y + h / 2 + 6 + Math.sin(a * 1.3) * rr * 0.8; ctx.fillRect(Math.round(px), Math.round(py), 2, 2); }
         s.k.forEach(k => { if (!k.on) return; const kx = x + k.u * w, ky = y + 10 + k.v * (h - 10); circle(kx, ky, 5, P.dred); circle(kx - 1, ky - 1, 2, P.pink); if (UI.ptr.justDown && near(kx, ky, 10)) { k.on = false; Snd.sfx('vote'); G.sparkle; } });
         return s.k.every(k => !k.on);
@@ -84,7 +93,7 @@ const Tasks = {};
       title: 'Drag each block into its matching bin!',
       init(s) { s.items = shuffle([0, 0, 1, 1, 2, 2]).map((c, i) => ({ c, i, init: false, placed: false, r: 6 })); s.cnt = [0, 0, 0]; },
       draw(s, x, y, w, h) {
-        const cols = [P.red, P.blue, P.yellow], bins = [0, 1, 2].map(i => ({ x: x + 25 + i * (w - 50) / 2, y: y + 40 }));
+        const cols = TH.cols, bins = [0, 1, 2].map(i => ({ x: x + 25 + i * (w - 50) / 2, y: y + 40 }));
         bins.forEach((b, i) => { G.rect(b.x - 18, b.y - 14, 36, 28, P.dbrown); G.rect(b.x - 16, b.y - 12, 32, 6, cols[i]); for (let k = 0; k < s.cnt[i]; k++) G.rect(b.x - 14 + k * 14, b.y - 2, 12, 12, cols[i]); });
         s.items.forEach((it, i) => { if (!it.init) { it.x = x + 20 + i * (w - 40) / 5; it.y = y + h - 26; it.init = true; } });
         dragUpdate(s, s.items, it => { const bi = bins.findIndex(b => Math.abs(b.x - it.x) < 22 && Math.abs(b.y - it.y) < 20); if (bi !== it.c) return false; it.placed = true; s.cnt[bi]++; return true; });
@@ -192,7 +201,7 @@ const Tasks = {};
       title: 'Tap the jars to refill them with candy!',
       init(s) { s.j = [0, 0, 0]; },
       draw(s, x, y, w, h) {
-        const cols = [P.red, P.lime, P.sky];
+        const cols = [TH.cols[0], TH.cols[2], TH.cols[1]];
         for (let i = 0; i < 3; i++) {
           const jx = x + 20 + i * (w - 40) / 3 + 6, jy = y + 30, jw = (w - 40) / 3 - 12, jh = h - 50;
           G.rect(jx, jy, jw, jh, P.ink); G.rect(jx + 1, jy + 1, jw - 2, jh - 2, '#cfe8ff'); G.rect(jx + 3, jy - 4, jw - 6, 5, P.pink);
@@ -204,6 +213,10 @@ const Tasks = {};
     }
   };
   Tasks.GAMES = GAMES;
+  // instructions that fit any map (used when the map gives the chore its own quest name)
+  const GENERIC = { pipes: 'Connect each colour to its match!', gears: 'Put each one in its matching slot!', code: 'Type in the code!', yarn: 'Tap the knots to untangle them!', sort: 'Drag each one into its matching bin!',
+    cupcake: 'Hold and trace the dots!', compass: 'Turn the needle to the star and hold it!', windbox: 'Tap (or press A) when the note is in the green!', keycard: 'Swipe it through the reader!',
+    rings: 'Stack them: biggest first!', matchtoys: 'Find the 3 matching ones!', gauge: 'Hold to fill. Let go at the line!', candy: 'Tap each jar to fill it up!' };
 
   Tasks.draw = function (dt) {
     if (!cur) return;
@@ -211,9 +224,17 @@ const Tasks = {};
     UI.group('task'); UI.blocker();
     const ctx = G.ctx; ctx.fillStyle = 'rgba(10,6,20,0.6)'; ctx.fillRect(0, 0, G.W, G.H);
     const w = Math.min(G.W - 16, 260), h = Math.min(G.H - 16, 180), x = Math.floor((G.W - w) / 2), y = Math.floor((G.H - h) / 2);
-    G.box(x, y, w, h, '#f3ead8');
+    G.box(x, y, w, h, TH.panel);
+    { // themed panel texture
+      const c2 = G.ctx; c2.fillStyle = TH.texC;
+      if (TH.tex === 'grid') { for (let i = x + 12; i < x + w - 4; i += 12) c2.fillRect(i, y + 4, 1, h - 8); for (let j = y + 12; j < y + h - 4; j += 12) c2.fillRect(x + 4, j, w - 8, 1); }
+      if (TH.tex === 'brick') for (let j = y + 8; j < y + h - 4; j += 8) { c2.fillRect(x + 4, j, w - 8, 1); for (let i = x + 4 + ((j / 8) % 2 ? 0 : 8); i < x + w - 4; i += 16) c2.fillRect(i, j, 1, 8); }
+      if (TH.tex === 'tatami') { for (let i = x + 4; i < x + w - 4; i += 3) c2.fillRect(i, y + 4, 1, h - 8); c2.fillStyle = '#6b8a3a'; c2.fillRect(x + 4, y + h / 2, w - 8, 2); }
+      if (TH.tex === 'leaf') for (let i = 0; i < 40; i++) { const lx = x + 6 + ((i * 53) % (w - 14)), ly = y + 6 + ((i * 31) % (h - 12)); c2.fillRect(lx, ly, 4, 2); c2.fillRect(lx + 1, ly - 1, 2, 4); }
+    }
+
     const C = Game.C && Game.C(), qn = C && C.map && C.map.quests ? C.map.quests[cur.kind] : null;
-    const lines = G.wrap((qn ? qn.toUpperCase() + ': ' : '') + g.title, Math.floor((w - 36) / 8)); lines.forEach((l, i) => G.text(l, x + 8, y + 7 + i * 9, P.ink));
+    const lines = G.wrap((qn ? qn.toUpperCase() + ': ' + GENERIC[cur.kind] : g.title), Math.floor((w - 36) / 8)); G.rect(x + 3, y + 3, w - 6, lines.length * 9 + 6, BAND[cur.kind] || P.blue); lines.forEach((l, i) => G.text(l, x + 8, y + 7 + i * 9, P.white, { ol: P.ink })); // each task type has its own colour band
     const top = y + lines.length * 9 + 2;
     cur.t += dt;
     let done = cur.doneT >= 0;

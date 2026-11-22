@@ -41,6 +41,8 @@
     const lab = s => (G.W < 420 && s === 'HOW TO PLAY') ? 'HELP' : s, ws = sm.map(s => lab(s[0]).length * 8 + 12), tot = ws.reduce((a, b) => a + b, 0) + 6 * (sm.length - 1);
     let sx = G.W / 2 - tot / 2; sm.forEach((s, i) => { UI.button(sx, y1, ws[i], 18, lab(s[0]), s[1]); sx += ws[i] + 6; });
     G.tiny('ONLY PLAY WITH PEOPLE WHO HAVE YOUR CODE', G.W / 2, y1 + 24, P.grey, 'c');
+    G.tiny('VERSION ' + (window.ISO_VERSION || 'DEV'), G.W - 4 - ('VERSION ' + (window.ISO_VERSION || 'DEV')).length * 4, G.H - 7, P.mid);
+    if (Game.update) UI.button(G.W / 2 - 110, y1 + 34, 220, 18, 'NEW VERSION! TAP TO UPDATE', () => location.replace(location.pathname + '?v=' + Game.update), { col: P.lime, nav: false });
     if (UI.prof.name) { G.text('Hi, ' + UI.prof.name + '!', 6, 6, P.white); }
     G.ctx.drawImage(G.charSprite(UI.prof.look, 0, Math.floor(t * 3) % 3), G.W - 34, 2);
   }
@@ -70,8 +72,10 @@
       ['Eyes', G.EYES[L.eyes], d => L.eyes = cyc(L.eyes, G.EYES.length, d)],
       ['Extra', G.EXTRAS[L.extra], d => L.extra = cyc(L.extra, G.EXTRAS.length, d)],
       ['Extra color', G.BODY_COLORS[(L.acc | 0) % 18][0], d => L.acc = cyc(L.acc | 0, 18, d)],
+      ['Extra 2', G.EXTRAS[L.extra2 | 0], d => L.extra2 = cyc(L.extra2 | 0, G.EXTRAS.length, d)],
+      ['Extra 2 color', G.BODY_COLORS[(L.acc2 | 0) % 18][0], d => L.acc2 = cyc(L.acc2 | 0, 18, d)],
     ];
-    const rh = Math.min(16, Math.floor((G.H - 70) / 10));
+    const rh = Math.min(16, Math.floor((G.H - 52) / (rows.length + 2)));
     const maxv = Math.floor((w - 60) / 8);
     rows.forEach((r, i) => { UI.valueRow(x, 12 + i * rh, w, r[0], String(r[1]).slice(0, Math.max(6, maxv - r[0].length)), d => { r[2](d); UI.save(); }, { dark: true }); });
     let y = 12 + rows.length * rh + 4; const bw = Math.floor((w - 6) / 2);
@@ -269,7 +273,19 @@
     if (want !== Snd.current) Snd.play(want);
     requestAnimationFrame(frame);
   }
+  // check for a newer version online (so old saved copies on phones / home-screen apps get replaced)
+  function checkUpdate() {
+    if (!window.ISO_VERSION || location.protocol === 'file:') return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(j => {
+      if (!j || !j.v || !(j.v > window.ISO_VERSION)) return; // only ever move to a NEWER version (versions sort as text)
+      let tried = null; try { tried = sessionStorage.getItem('iso-update-tried'); } catch (e) { }
+      if (Game.screen === 'menu' && !Game.inSession() && tried !== j.v) { try { sessionStorage.setItem('iso-update-tried', j.v); } catch (e) { } location.replace(location.pathname + '?v=' + j.v); return; } // nothing to lose: reload with the new files (once)
+      else Game.update = j.v; // in a game: offer the update on the menu afterwards
+    }).catch(() => { });
+  }
   function boot() {
+    setTimeout(checkUpdate, 1500); setInterval(checkUpdate, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
     G.resize(); G.buildFont();
     window.addEventListener('resize', () => { G.resize(); });
     window.addEventListener('orientationchange', () => setTimeout(() => G.resize(), 300));

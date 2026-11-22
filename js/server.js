@@ -89,7 +89,7 @@ const Server = {};
 
   function sanitizeLook(l) {
     l = l || {}; const c = (v, n) => Math.max(0, Math.min(n - 1, v | 0));
-    return { shape: c(l.shape, G.SHAPES.length), color: c(l.color, 18), pattern: c(l.pattern, 4), hair: c(l.hair, 10), hairColor: c(l.hairColor, 10), hat: c(l.hat, 9), eyes: c(l.eyes, G.EYES.length), extra: c(l.extra, G.EXTRAS.length), acc: c(l.acc, 18) };
+    return { shape: c(l.shape, G.SHAPES.length), color: c(l.color, 18), pattern: c(l.pattern, 4), hair: c(l.hair, 10), hairColor: c(l.hairColor, 10), hat: c(l.hat, 9), eyes: c(l.eyes, G.EYES.length), extra: c(l.extra, G.EXTRAS.length), acc: c(l.acc, 18), extra2: c(l.extra2, G.EXTRAS.length), acc2: c(l.acc2, 18) };
   }
   function uniqueLook(p) { // no two players share exact colour AND shape
     const clash = () => { for (const q of st.players.values()) if (q !== p && q.look.shape === p.look.shape && q.look.color === p.look.color) return true; return false; };
@@ -395,7 +395,8 @@ const Server = {};
       if (p.alive && !p.left) { const s = st.map.seats[(i++ * 7) % 20]; teleport(p, s[0], s[1]); }
     }
     st.rosterDirty = true;
-    sendAll({ t: 'e', k: 'meeting', reason, by: caller.id, body: owner ? owner.id : null, obj: body ? body.obj : null });
+    const BELL_Q = ['WHY?', 'NOW?', 'REASONING?', 'BUT WHY?', 'WHO?', 'HOW?', 'REALLY?', 'PROOF?', 'SUS?', 'WHAT?!'];
+    sendAll({ t: 'e', k: 'meeting', reason, by: caller.id, body: owner ? owner.id : null, obj: body ? body.obj : null, q: BELL_Q[rnd(BELL_Q.length)] });
   }
   function vote(p, target) {
     const M = st.meeting; if (!M || M.stage !== 'vote' || !p.alive || p.left || p.vote !== null) return;

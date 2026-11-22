@@ -143,7 +143,7 @@ const Game = {};
         Snd.sfx(e.s === 'jam' ? 'door' : 'alarm');
         UI.say(e.s === 'lights' ? 'LIGHTS OUT! Flip the 2 switches (Gear Room + Candy Kitchen)!' : e.s === 'melt' ? 'BOILER MELTDOWN! Two players must hold the buttons in the Boiler Room AND the Library at the same time!' : 'The ' + e.room + ' doors are jammed!', { auto: 2.5, top: true, col: '#ffe0e0' }); break;
       case 'sabfix': if (e.text) UI.say(e.text, { auto: 1.5, top: true }); Snd.sfx('task'); C.holding = false; break;
-      case 'meeting': C.meetFx = { t: 0, t0: performance.now(), reason: e.reason, by: e.by, body: e.body, obj: e.obj }; C.meetCount++; Snd.sfx(e.reason === 'bell' ? 'bell' : 'report'); Snd.sfx('reveal'); Tasks.close(); C.overlay = null; C.card = null; C.chatCh = (C.mine.alive ? 'all' : 'spirit'); break;
+      case 'meeting': C.meetFx = { t: 0, t0: performance.now(), reason: e.reason, by: e.by, body: e.body, obj: e.obj, q: e.q }; C.meetCount++; Snd.sfx(e.reason === 'bell' ? 'bell' : 'report'); Snd.sfx('reveal'); Tasks.close(); C.overlay = null; C.card = null; C.chatCh = (C.mine.alive ? 'all' : 'spirit'); break;
       case 'eject': C.eject = { id: e.id, text: e.text, counts: e.counts, skips: e.skips, as: e.as, piece: e.piece, t: 0, t0: performance.now(), look: e.id ? lookOf(e.id) : null }; break;
       case 'resume': C.eject = null; C.meetFx = null; C.chatOpen = false; break;
       case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.mode === 'maze' ? ((e.winner === 'runners') === (C.myRole === 'runner') ? 'fanfare' : 'sad') : e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
@@ -662,7 +662,7 @@ const Game = {};
     if (!UI.typing() && !C.overlay && (UI.hit('key:Enter') || UI.hit('chat'))) Game.openChat();
     // dramatic encounter intro
     if (C.meetFx) C.meetFx.t = (performance.now() - C.meetFx.t0) / 1000;
-    if (C.meetFx && C.meetFx.t < 2.6) { encounter(C.meetFx.t, C.meetFx.reason === 'bell' ? 'MEETING BELL!' : 'PIECE REPORTED!', C.meetFx.reason === 'bell' ? P.yellow : P.orange, C.meetFx); }
+    if (C.meetFx && C.meetFx.t < 2.6) { encounter(C.meetFx.t, C.meetFx.reason === 'bell' ? (C.meetFx.q || 'WHY?') : 'PIECE REPORTED!', C.meetFx.reason === 'bell' ? P.yellow : P.orange, C.meetFx); }
     // eject cutscene
     if (C.eject && M.st === 'result') drawEject(dt, t);
   }
@@ -675,7 +675,7 @@ const Game = {};
     if (k >= 1 && k2 < 0.5) {
       G.title(title, G.W / 2, G.H / 2 - 20, 2, tt);
       if (fx && fx.body) { const c = G.bodySprite(fx.obj, lookOf(fx.body)); ctx.drawImage(c, G.W / 2 - 26, G.H / 2 + 2, c.width * 2, c.height * 2); G.text(nameOf(fx.body), G.W / 2, G.H / 2 + 70, P.white, { al: 'c' }); }
-      else if (fx) { G.drawChar(lookOf(fx.by), 0, 0, G.W / 2, G.H / 2 + 50); G.text(nameOf(fx.by) + ' rang the bell!', G.W / 2, G.H / 2 + 56, P.white, { al: 'c' }); }
+      else if (fx) { G.drawChar(lookOf(fx.by), 0, 0, G.W / 2, G.H / 2 + 50); G.text(nameOf(fx.by) + ' rang the meeting bell!', G.W / 2, G.H / 2 + 56, P.white, { al: 'c' }); }
     }
   }
   function drawEject(dt, t) {
