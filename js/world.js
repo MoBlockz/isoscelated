@@ -114,11 +114,13 @@ const World = {};
   // Every map is the same proven floor plan, flipped (so routes differ), with its own rooms, colours, props and quests.
   World.MAPS = {
     workshop: {
-      name: 'Toy Workshop', flip: [0, 0], goal: 'Finish your chores to power the escape BLIMP.', win: 'The blimp launched! All chores done!', centre: 'blimp',
+      name: 'Toy Workshape', flip: [0, 0],
+      names: ['Paint Shape Shop', 'Gear Square', 'Library of Blue-prisms', 'Storage Atti-cube', 'Candy Cone Kitchen', 'Blimp Dock-agon', 'Music Cube Hall', 'Security Square', 'Toy Triangle Lab', 'Boiler Cylinder'], goal: 'Finish your chores to power the escape BLIMP.', win: 'The blimp launched! All chores done!', centre: 'blimp',
       hall: [['#d6cfc0', '#cdc5b4'], '#8b8174'], props: {}, quests: null, cams: ['Blimp Dock', 'Gear Hall', 'Candy Hall', 'Boiler Hall']
     },
     castle: {
-      name: 'Medieval Castle', flip: [1, 0], goal: 'Finish your quests to lower the DRAWBRIDGE and escape.', win: 'The drawbridge came down! Everyone escaped!', centre: 'drawbridge',
+      name: 'Cube-a-lot Castle', flip: [1, 0],
+      names: ['Banner Hexhall', 'Blacksphere Smithy', 'Library Tri-tower', 'Trapezoid Treasury', 'Great Kite-chen', 'Throne Rhombus', 'Minstrel Oval', 'Watch Prism', 'Royal Stable-gon', 'Dun-cone'], goal: 'Finish your quests to lower the DRAWBRIDGE and escape.', win: 'The drawbridge came down! Everyone escaped!', centre: 'drawbridge',
       hall: [['#a9a39a', '#9c958b'], '#5e5a63'],
       rooms: [['Banner Hall', ['#b7a58a', '#a99678'], '#7a3b3b', 'plank'], ['Blacksmith', ['#8e8a86', '#827d79'], '#4d4a52', 'plate'], ['Library Tower', ['#9b8366', '#8e775b'], '#5b4636', 'carpet'],
         ['Treasury', ['#d9c17a', '#cdb46a'], '#7d6327', 'check'], ['Great Kitchen', ['#c7b49a', '#bba68a'], '#7a5a3c', 'tile'], ['Throne Room', ['#b03a46', '#a2323d'], '#55505f', 'carpet'],
@@ -128,7 +130,8 @@ const World = {};
       cams: ['Throne Room', 'Smithy Hall', 'Kitchen Hall', 'Dungeon Hall']
     },
     palace: {
-      name: 'Sakura Palace', flip: [0, 1], goal: 'Finish your tasks to launch the DRAGON BOAT and sail away.', win: 'The dragon boat set sail! Everyone escaped!', centre: 'dragonboat',
+      name: 'Pentagoda Palace', flip: [0, 1],
+      names: ['Koi Circle Garden', 'Water Wheel Ring', 'Scroll Cylibrary', 'Treasure Cube Vault', 'Tea-rapezoid Room', 'Great Hexa-hall', 'Taiko Cylinder', 'Pagoda Prism', 'Dojo-decagon', 'Bath Oval'], goal: 'Finish your tasks to launch the DRAGON BOAT and sail away.', win: 'The dragon boat set sail! Everyone escaped!', centre: 'dragonboat',
       hall: [['#d8c9a0', '#cdbd92'], '#7a2e2e'],
       rooms: [['Koi Garden', ['#a9d18e', '#9cc481'], '#3f6b3a', 'carpet'], ['Water Wheel Room', ['#c9b48d', '#bea880'], '#6b3a2a', 'plank'], ['Scroll Library', ['#d9c7a0', '#cdbb92'], '#7a2e2e', 'plank'],
         ['Treasure Vault', ['#d8b65a', '#cca94d'], '#5c2a2a', 'check'], ['Tea Kitchen', ['#cfdcb0', '#c3d1a3'], '#6b3a2a', 'tile'], ['Great Hall', ['#d6cfa2', '#cac294'], '#a3303a', 'tile'],
@@ -138,7 +141,8 @@ const World = {};
       cams: ['Great Hall', 'Wheel Hall', 'Tea Hall', 'Bath Hall']
     },
     jurassic: {
-      name: 'Jurassic Manor', flip: [1, 1], goal: 'Finish your jobs to power the TIME MACHINE and escape.', win: 'The time machine fired up! Everyone escaped!', centre: 'timemachine',
+      name: 'Tri-ceratops Manor', flip: [1, 1],
+      names: ['Fossil Polygon Lab', 'Crane Cube', 'Map Parallelogram', 'Egg-lipse Nursery', 'Dino Kite-chen', 'Grand Hexa-hall', 'Music Rhombus', 'Look-octagon', 'Trophy Trapezoid', 'Volcan-cone Cellar'], goal: 'Finish your jobs to power the TIME MACHINE and escape.', win: 'The time machine fired up! Everyone escaped!', centre: 'timemachine',
       hall: [['#a7b58a', '#9aa87d'], '#4d3b2a'],
       rooms: [['Fossil Lab', ['#d8c7a0', '#ccbb92'], '#5c4630', 'tile'], ['Crane Room', ['#a39a8a', '#978e7e'], '#4a4035', 'plate'], ['Map Room', ['#b99a72', '#ad8e66'], '#4d3b2a', 'carpet'],
         ['Egg Nursery', ['#e8d9a8', '#ddcd9a'], '#7a5a2a', 'check'], ['Dino Kitchen', ['#c7d1a3', '#bbc596'], '#4d5a2a', 'tile'], ['Grand Hall', ['#8fb37a', '#83a76e'], '#3e5a2e', 'carpet'],
@@ -168,9 +172,9 @@ const World = {};
   function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   World.buildMaze = function (seed) {
     const R = mulberry(seed | 0), CW = 17, CH = 11, w = CW * 3 + 1, h = CH * 3 + 1;
-    const m = makeMap(w, h); m.kind = 'maze'; m.theme = 'maze'; m.title = 'Minotaur Maze'; m.hedge = true;
+    const m = makeMap(w, h); m.kind = 'maze'; m.theme = 'maze'; m.title = 'The Octa-maze'; m.hedge = true;
     m.hallFloor = ['#9ccf6a', '#90c45e']; m.hallWall = '#2f7a3a';
-    m.rooms.push({ i: 0, name: 'Hedge Maze', x: 0, y: 0, w, h, floor: ['#a6d673', '#9acb66'], wall: '#2f7a3a', style: 'check' });
+    m.rooms.push({ i: 0, name: 'Hedge-agon Maze', x: 0, y: 0, w, h, floor: ['#a6d673', '#9acb66'], wall: '#2f7a3a', style: 'check' });
     const cellX = c => 1 + c * 3, open = (x, y, ww, hh) => carve(m, x, y, ww, hh, 0);
     const seen = new Uint8Array(CW * CH), stack = [], cx0 = CW >> 1, cy0 = CH >> 1, links = [];
     const link = (a, b) => { links.push([a, b]); const ax = a % CW, ay = (a / CW) | 0, bx = b % CW, by = (b / CW) | 0; open(Math.min(cellX(ax), cellX(bx)), Math.min(cellX(ay), cellX(by)), Math.abs(ax - bx) * 3 + 2, Math.abs(ay - by) * 3 + 2); };
@@ -220,6 +224,7 @@ const World = {};
     m.theme = T2; m.title = th.name; m.goal = th.goal; m.winText = th.win; m.quests = th.quests;
     m.hallFloor = th.hall[0]; m.hallWall = th.hall[1];
     if (th.rooms) th.rooms.forEach((r, i) => { Object.assign(m.rooms[i], { name: r[0], floor: r[1], wall: r[2], style: r[3] }); });
+    if (th.names) th.names.forEach((n, i) => { m.rooms[i].name = n; }); // shape-pun room names
     for (const p of m.props) { if (p.k === 'blimp') p.k = th.centre; else if (th.props[p.k]) p.k = th.props[p.k]; }
     m.cams.forEach((c, i) => c.name = th.cams[i] || c.name);
     return m;

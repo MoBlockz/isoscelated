@@ -193,7 +193,7 @@
     ['CLASSIC', 'The CLASSIC Hexagoner has no special power, but can Hex more often (5s shorter cooldown) and sees a bit further in the dark.', 'classic'],
     ['SHAPESHIFTER', 'SHIFT copies another player\'s whole look AND name for 20s. Hex in disguise and witnesses blame the wrong shape! Shifting makes a puff of smoke, so be careful who is watching.', 'shift'],
     ['PLANTER', 'PLANT secretly curses a Shape (a purple mark only Hexagoners can see). The next Shape they walk near gets zapped... FROM the marked player! Now everyone thinks they did it.', 'plant'],
-    ['SQUAREFF', 'One random Shape may be the SQUAREFF. They see who is marked by a Planter, a red hexagon over a disguised Shapeshifter, keep their vision in Lights Out, and can read Spirit chat. Help your team without giving yourself away!', 'squareff'],
+    ['SQUAREFF', 'One random Shape may be the SQUAREFF. They see who is marked by a Planter, a red hexagon over a disguised Shapeshifter, and keep their vision in Lights Out. Help your team without giving yourself away!', 'squareff'],
     ['MINOTAUR MAZE', 'A second game mode! One player is the MINOTAUR (your own character on a bull body). Everyone else gets a 10 second head start to find 3 golden keys and escape the hedge maze. Hear a heartbeat? The Minotaur is near!', 'maze'],
     ['SPIRITS', 'Turned into a chess piece? You become a Spirit! Float through walls, keep doing chores to help, chat with other Spirits, and RATTLE one object once per game as a hint.', 'spirit'],
     ['HOW TO WIN', 'SHAPES win by filling the chore bar or voting out every Hexagoner. HEXAGONERS win when they equal the Shapes, if the boiler melts down, or if the match timer runs out.', 'win'],

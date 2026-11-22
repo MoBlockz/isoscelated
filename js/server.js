@@ -506,7 +506,7 @@ const Server = {};
     if (st.phase === 'meeting' && whoId && /It's|sus|Vote/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) + 1; }
     if (st.phase === 'meeting' && whoId && /trust/.test(e.t)) { st.accuse = st.accuse || {}; st.accuse[whoId] = (st.accuse[whoId] || 0) - 1; }
     if (live && team && p.role === 'hex' && p.alive) { msg.ch = 'hex'; sendAll(msg, x => x.role === 'hex' && x.alive); return; } // Hexagoner team only
-    if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive || (x.sq && x.alive)); return; } // Spirits (+ the Squareff can listen)
+    if (live && !p.alive) { msg.ch = 'spirit'; sendAll(msg, x => !x.alive); return; } // Spirits only
     if (st.phase !== 'play') { sendAll(msg); return; }
     sendAll(msg, x => !x.alive || x === p || canSee(x, p.x, p.y)); // in play: only people who can see you
   }

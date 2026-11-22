@@ -13,7 +13,7 @@ const Game = {};
     plant: 'PLANT (F): secretly curse a Shape. The next Shape they get close to is zapped FROM them!'
   };
   Game.TYPE_NAME = TYPE_NAME; Game.TYPE_INFO = TYPE_INFO;
-  const SQ_INFO = 'You are a Shape with super sight: you see who is marked (tagged), a red hexagon over disguised Shapeshifters, you keep your vision in Lights Out, and you can read Spirit chat.';
+  const SQ_INFO = 'You are a Shape with super sight: you see who is marked (tagged), a red hexagon over disguised Shapeshifters, and you keep your vision in Lights Out.';
   Game.SQ_INFO = SQ_INFO;
   let C = null; Game.C = () => C;
   Game.inSession = () => !!C;
@@ -512,7 +512,7 @@ const Game = {};
     const s = C.snap; if (!s) return; const mine = C.mine, hex = C.myRole === 'hex', alive = !!mine.alive;
     // ---- role badge (top-left) ----
     const sq = C.mySq && !hex, roleTxt = !alive ? 'SPIRIT' : hex ? 'HEXAGONER' : sq ? 'SQUAREFF' : 'SHAPE', roleCol = !alive ? '#5d7fd0' : hex ? P.dred : sq ? '#b8860b' : P.blue;
-    const goal = !alive ? 'Keep doing chores! Chat with Spirits.' : hex ? (TYPE_NAME[C.myType] || '') + ': hex Shapes, don\'t get caught' : sq ? 'You see marks, disguises + Spirit chat' : 'Do chores. Find the Hexagoners!';
+    const goal = !alive ? 'Keep doing chores! Chat with Spirits.' : hex ? (TYPE_NAME[C.myType] || '') + ': hex Shapes, don\'t get caught' : sq ? 'You see marks + disguises' : 'Do chores. Find the Hexagoners!';
     const rw = roleTxt.length * 8 + 12; G.rect(3, 3, rw + 2, 15, P.ink); G.rect(4, 4, rw, 13, roleCol); G.text(roleTxt, 10, 7, P.white);
     // ---- chore bar (top-centre) ----
     const bw = Math.max(90, Math.min(200, G.W - rw - 150)), bx = Math.floor(Math.max(rw + 12, G.W / 2 - bw / 2));
@@ -556,7 +556,7 @@ const Game = {};
     rx -= 58; smallBtn(rx, 22, 'QUICK', () => { C.overlay = 'quick'; });
     const ch = chatChannel();
     // recent hex/spirit chat
-    if (C.chat.length && (hex || !alive || C.mySq)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
+    if (C.chat.length && (hex || !alive)) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length || C.chatOpen) { const saved = C.chat; C.chat = C.chatOpen ? saved : last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), C.chatOpen ? 60 : last.length * 10 + 10, 3); C.chat = saved; } }
     // action buttons (bottom-right)
     if (C.phase !== 'play') { drawDpad(); return; }
     const cx = context(); const R = Math.min(24, Math.floor(G.H / 9)); usePrompt(cx);
