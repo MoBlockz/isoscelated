@@ -22,7 +22,7 @@ const Game = {};
       mode, id: mode === 'join' ? null : 'h', code: '', phase: 'lobby', roster: [], byId: {}, settings: Object.assign({}, Server.DEF), inbox: [],
       me: { x: 12 * T, y: 8 * T, dir: 0, mv: 0, anim: 0, tpSeq: 0, stepT: 0 }, mine: { alive: 1, tasks: [] }, others: new Map(), bodies: [], snap: null,
       chat: [], bubbles: {}, toasts: [], overlay: null, reveal: null, meetFx: null, eject: null, over: null, muted: new Set(), oopsT: 0,
-      sendT: 0, map: World.buildLobby(), rattle: {}, wobble: {}, vis: 184, lastRoom: '', roomT: 0, holding: false, card: null, chatOpen: false, chatCh: 'all',
+      sendT: 0, map: World.buildLobby(), rattle: {}, wobble: {}, vis: 92, lastRoom: '', roomT: 0, holding: false, card: null, chatOpen: false, chatCh: 'all',
       seenBodies: new Set(), jukebox: null, connected: false, scroll: 0, practice: mode === 'practice', lastChatSent: 0, hexedT: -1, meetCount: 0
     };
   }
@@ -279,7 +279,7 @@ const Game = {};
     C.toasts.forEach(x => x.t -= dt); C.toasts = C.toasts.filter(x => x.t > 0);
     // vision radius (animated)
     const sabK = C.snap && C.snap.sab && C.snap.sab.k;
-    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 244 : 216) : (sabK === 'lights' ? 76 : 184);
+    const target = C.myRole === 'hex' ? (C.myType === 'classic' ? 122 : 108) : (sabK === 'lights' ? 38 : 92);
     C.vis += (target - C.vis) * Math.min(1, dt * 3);
 
     drawWorld(dt, t);

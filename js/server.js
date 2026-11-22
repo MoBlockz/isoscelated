@@ -14,7 +14,7 @@ const Server = {};
   Server.hexValid = (h, n) => h * 2 < n;
   const PIECE_AGE = 30; // seconds before a pawn becomes a different piece
   const HEX_RANGE = 26, REPORT_RANGE = 34, USE_RANGE = 26, MARK_RANGE = 22, ARM_TIME = 1.5;
-  const VIS = { shape: 184, hex: 216, dark: 76 }; // vision radius in pixels (doubled)
+  const VIS = { shape: 92, hex: 108, dark: 38 }; // vision radius in pixels
   let st = null, timer = null, link = null;
   Server.active = () => !!st;
   Server.state = () => st;
@@ -143,7 +143,7 @@ const Server = {};
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   function visionOf(p) {
     if (!p.alive) return 9999; if (st.phase !== 'play') return 9999;
-    if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 28 : 0);
+    if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 14 : 0);
     return st.sab.k === 'lights' ? VIS.dark : VIS.shape;
   }
   function canSee(viewer, x, y, extra) {
