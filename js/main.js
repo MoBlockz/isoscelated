@@ -128,7 +128,7 @@
     const w = Math.min(300, G.W - 30), x = G.W / 2 - w / 2; G.box(x - 10, 8, w + 20, G.H - 16, P.white); G.text('SETTINGS', G.W / 2, 16, P.dblue, { al: 'c' });
     let y = settingsRows(x, 34, w, false) + 6;
     G.text('LISTEN TO THE MUSIC:', x, y, P.mid); y += 12;
-    Snd.TRACKS.forEach(tr => { UI.button(x, y, w, 15, (jukeSel === tr.id ? '♥ ' : '') + tr.name, () => { jukeSel = jukeSel === tr.id ? null : tr.id; }, { col: jukeSel === tr.id ? P.yellow : P.white }); y += 17; });
+    Snd.TRACKS.forEach(tr => { const sel = jukeSel === tr.id; const b = UI.button(x, y, w, 15, tr.name, () => { jukeSel = sel ? null : tr.id; }, { col: sel ? P.yellow : P.white, noCursor: true }); if (sel) G.text('▶', x - 9, y + 3, P.yellow, { ol: P.ink }); if (!sel && UI.isFocused(b) && performance.now() - (UI.navMoved || 0) < 150) jukeSel = tr.id; y += 17; });
     UI.button(G.W / 2 - 45, Math.min(y + 4, G.H - 32), 90, 18, 'BACK', () => { jukeSel = null; Game.screen = 'menu'; });
     if (UI.hit('back')) { jukeSel = null; Game.screen = 'menu'; }
   }

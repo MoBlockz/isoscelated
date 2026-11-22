@@ -67,7 +67,7 @@ const UI = {};
   UI.area = function (x, y, w, h, cb, opts) { const b = Object.assign({ x, y, w, h, cb, g: curGroup, i: btns.length }, opts || {}); btns.push(b); return b; };
   UI.blocker = function (cb) { UI.area(0, 0, G.W, G.H, cb || (() => { }), { block: true }); };
   function navButtons(g) { return btns.filter(b => b.g === g && b.nav); }
-  UI.isFocused = function (b) { const nb = navButtons(b.g), f = UI.focus[b.g] | 0; return UI.navGroup() === b.g && nb[Math.min(f, nb.length - 1)] === b; };
+  UI.isFocused = function (b) { const nb = navButtons(b.g); return UI.navGroup() === b.g && nb.indexOf(b) === (UI.focus[b.g] | 0); }; // exact match (buttons drawn later don't exist yet)
   UI.navGroup = function () { for (let i = groupOrder.length - 1; i >= 0; i--) if (navButtons(groupOrder[i]).length) return groupOrder[i]; return null; };
   UI.endFrame = function () {
     // taps: last registered (top-most) wins
@@ -81,9 +81,9 @@ const UI = {};
     for (const k of ['up', 'down', 'left', 'right']) if (UI.hit(k)) {
       if ((k === 'left' || k === 'right') && cur && cur.lr) { cur.lr(k === 'left' ? -1 : 1); Snd.sfx('click'); continue; }
       const [dx, dy] = dirs[k]; let best = -1, bs = 1e9; const cx = cur.x + cur.w / 2, cy = cur.y + cur.h / 2;
-      nb.forEach((b, i) => { if (b === cur) return; const bx = b.x + b.w / 2 - cx, by = b.y + b.h / 2 - cy; const along = bx * dx + by * dy; if (along <= 2) return; const across = Math.abs(bx * dy) + Math.abs(by * dx); const s = along + across * 2.5; if (s < bs) { bs = s; best = i; } });
+      nb.forEach((b, i) => { if (b === cur) return; const bx = b.x + b.w / 2 - cx, by = b.y + b.h / 2 - cy; const along = bx * dx + by * dy; if (along <= 2) return; const across = Math.abs(bx * dy) + Math.abs(by * dx); const s = along + across * 4; if (s < bs) { bs = s; best = i; } });
       if (best < 0 && (k === 'up' || k === 'down')) best = (f + (k === 'down' ? 1 : nb.length - 1)) % nb.length; // wrap
-      if (best >= 0) { f = best; Snd.sfx('click'); }
+      if (best >= 0) { f = best; Snd.sfx('click'); UI.navMoved = performance.now(); }
     }
     UI.focus[g] = f;
     if (UI.hit('ok') && nb[f] && nb[f].cb) { Snd.sfx('select'); nb[f].cb({ key: true }); }

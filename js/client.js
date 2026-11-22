@@ -812,7 +812,7 @@ const Game = {};
     }
     if (o === 'jukebox') {
       const b = panel(260, 40 + Snd.TRACKS.length * 21 + 24, 'MUSIC BOX JUKEBOX');
-      Snd.TRACKS.forEach((tr, i) => { UI.button(b.x + 10, b.y + 24 + i * 21, b.w - 20, 18, (C.jukebox === tr.id ? '♥ ' : '') + tr.name, () => { C.jukebox = tr.id; }, { col: C.jukebox === tr.id ? P.yellow : P.white }); });
+      Snd.TRACKS.forEach((tr, i) => { const sel = C.jukebox === tr.id, by = b.y + 24 + i * 21; const bt = UI.button(b.x + 10, by, b.w - 20, 18, tr.name, () => { C.jukebox = tr.id; }, { col: sel ? P.yellow : P.white, noCursor: true }); if (sel) G.text('▶', b.x + 1, by + 5, P.yellow, { ol: P.ink }); if (!sel && UI.isFocused(bt) && performance.now() - (UI.navMoved || 0) < 150) C.jukebox = tr.id; });
       UI.button(b.x + 10, b.y + 24 + Snd.TRACKS.length * 21, b.w - 20, 18, 'STOP PREVIEW', () => closeOverlay(), { col: P.light });
       return;
     }
