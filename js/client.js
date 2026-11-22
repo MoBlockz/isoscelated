@@ -749,21 +749,69 @@ const Game = {};
     const mz = O.mode === 'maze'; G.title(mz ? (O.winner === 'runners' ? 'SHAPES ESCAPED!' : 'MINOTAUR WINS!') : sh ? 'SHAPES WIN!' : 'HEXAGONERS WIN!', G.W / 2, 8, G.W > 380 ? 3 : 2, t);
     G.text(O.reason, G.W / 2, 40, P.white, { al: 'c' });
     if (sh && O.t < 6 && O.reason.indexOf('blimp') >= 0) { const bx = -60 + O.t * 70; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx, 70, 32, 14, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx, 69, 30, 12, 0, 0, 7); ctx.fill(); }
-    const cols = Math.max(1, Math.floor((G.W - 8) / 128)), cw = Math.floor((G.W - 8) / cols), chh = Math.min(26, Math.floor((G.H - 84) / Math.ceil(O.players.length / cols)));
-    O.players.forEach((p, i) => {
-      const x = 4 + (i % cols) * cw, y = 54 + Math.floor(i / cols) * chh;
-      ctx.save(); ctx.beginPath(); ctx.rect(x, y, 22, chh - 1); ctx.clip(); ctx.drawImage(G.charSprite(p.look, 0, 0), x - 3, y - 8); ctx.restore();
-      G.text(p.name, x + 24, y + 1, p.role === 'hex' ? P.hexred : P.sky);
-      if (mz) { G.tiny(p.role === 'mino' ? 'MINOTAUR' : p.escaped ? 'ESCAPED!' : 'CAUGHT', x + 24, y + 10, p.role === 'mino' ? P.orange : p.escaped ? P.lime : P.pink); G.tiny(p.role === 'mino' ? 'CAUGHT ' + (p.stats.caught || 0) : 'KEYS ' + (p.stats.keys || 0), x + 24, y + 17, P.light); return; }
-      G.tiny(p.role === 'hex' ? 'HEX: ' + TYPE_NAME[p.type] : p.sq ? 'SHAPE: SQUAREFF' : 'SHAPE', x + 24, y + 10, p.role === 'hex' ? P.pink : p.sq ? P.yellow : '#bcd7ff');
-      const st = p.stats; G.tiny((p.role === 'hex' ? 'HEX ' + st.hexes + ' FRAME ' + st.framed + ' SHIFT ' + st.shifts : 'TASKS ' + st.tasks) + ' GOOD VOTES ' + st.votes, x + 24, y + 17, P.light);
-    });
+    if (mz) { // Minotaur Maze keeps the simple list
+      const cols = Math.max(1, Math.floor((G.W - 8) / 128)), cw = Math.floor((G.W - 8) / cols), chh = Math.min(26, Math.floor((G.H - 84) / Math.ceil(O.players.length / cols)));
+      O.players.forEach((p, i) => {
+        const x = 4 + (i % cols) * cw, y = 54 + Math.floor(i / cols) * chh;
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, 22, chh - 1); ctx.clip(); ctx.drawImage(G.charSprite(p.look, 0, 0), x - 3, y - 8); ctx.restore();
+        G.text(p.name, x + 24, y + 1, P.sky);
+        G.tiny(p.role === 'mino' ? 'MINOTAUR' : p.escaped ? 'ESCAPED!' : 'CAUGHT', x + 24, y + 10, p.role === 'mino' ? P.orange : p.escaped ? P.lime : P.pink); G.tiny(p.role === 'mino' ? 'CAUGHT ' + (p.stats.caught || 0) : 'KEYS ' + (p.stats.keys || 0), x + 24, y + 17, P.light);
+      });
+    } else drawPodium(O, t);
     const host = C.mode === 'host';
     if (O.t > 2) {
       if (host) UI.button(G.W / 2 - 70, G.H - 24, 140, 20, 'BACK TO LOBBY', () => Server.backToLobby(), { col: P.yellow });
       else G.text('Waiting for the host... (' + (C.snap && C.snap.tm || 0) + 's)', G.W / 2, G.H - 18, P.white, { al: 'c' });
       UI.button(4, G.H - 22, 60, 18, 'LEAVE', () => Game.toMenu(), { nav: false });
     }
+  }
+
+  // ---------- END-OF-GAME HIGHLIGHTS ----------
+  // Hexagoners win: the Hexagoners (as angry HEXAGONS) stand big in the centre.
+  // Shapes win: the survivors stand big in the centre, the Hexagoners (as hexagons) on the left.
+  // Everyone who was turned into a piece floats on the right as a ghost.
+  function drawPodium(O, t) {
+    const ctx = G.ctx, hexWin = O.winner === 'hex', ps = O.players;
+    const hexes = ps.filter(p => p.role === 'hex'), shapes = ps.filter(p => p.role !== 'hex');
+    const survivors = shapes.filter(p => p.alive && !p.left), fallen = shapes.filter(p => !p.alive || p.left);
+    const centre = hexWin ? hexes : survivors, left = hexWin ? survivors : hexes;
+    const top = 52, bottom = G.H - 30, lw = Math.floor(G.W * 0.27), rx = Math.floor(G.W * 0.73), cx0 = lw, cw = rx - lw;
+    const head = (txt, x, col) => G.tiny(txt, x, top - 1, col, 'c');
+    const stat = p => p.role === 'hex' ? TYPE_NAME[p.type] + ' - HEXES ' + p.stats.hexes : (p.sq ? 'SQUAREFF - ' : '') + 'TASKS ' + p.stats.tasks + ' - VOTES ' + p.stats.votes;
+    // floor glow under the winners
+    ctx.fillStyle = hexWin ? 'rgba(255,51,85,0.18)' : 'rgba(246,207,87,0.18)'; ctx.fillRect(cx0 + 6, bottom - 18, cw - 12, 10);
+    // ---- centre: the winners, big ----
+    head(hexWin ? 'THE HEXAGONERS' : 'THE SURVIVORS', cx0 + cw / 2, hexWin ? P.hexred : P.yellow);
+    if (centre.length) { // pick the biggest size that fits, then centre the group vertically
+      const sw = hexWin ? 34 : 30, sh = hexWin ? 30 : 36, availH = bottom - top - 10;
+      let sc = 1, perRow = 1, rows = 1; for (const k of [3, 2, 1]) { perRow = Math.max(1, Math.floor(cw / (sw * k + 8))); rows = Math.ceil(centre.length / perRow); if (rows * (sh * k * 0.8 + (k > 1 && rows === 1 ? 26 : 10)) <= availH || k === 1) { sc = k; break; } }
+      const cellW = sw * sc + 8, cellH = Math.min(sh * sc + (sc > 1 && rows === 1 ? 26 : 14), availH / rows), y0 = top + 6 + Math.max(0, (availH - rows * cellH) / 2);
+      centre.forEach((p, i) => {
+        const row = Math.floor(i / perRow), inRow = Math.min(perRow, centre.length - row * perRow), col = i % perRow;
+        const x = Math.round(cx0 + cw / 2 + (col - (inRow - 1) / 2) * cellW), y = Math.round(y0 + row * cellH + sh * sc), bob = Math.round(Math.sin(t * 3 + i) * 2);
+        const spr = hexWin ? G.hexagonSprite(p.look) : G.charSprite(p.look, 0, 1 + (Math.floor(t * 4 + i) % 2));
+        ctx.drawImage(spr, x - spr.width * sc / 2, y - spr.height * sc + bob, spr.width * sc, spr.height * sc);
+        G.tiny(p.name, x, y + 3, hexWin ? P.pink : P.white, 'c');
+        if (sc > 1 && rows === 1) { G.tiny(p.role === 'hex' ? TYPE_NAME[p.type] : (p.sq ? 'SQUAREFF' : 'SHAPE'), x, y + 10, P.light, 'c'); G.tiny(p.role === 'hex' ? p.stats.hexes + ' HEXED' : p.stats.tasks + ' CHORES', x, y + 17, P.grey, 'c'); }
+      });
+    } else G.text('Nobody!', cx0 + cw / 2, (top + bottom) / 2, P.grey, { al: 'c' });
+    // ---- left: the losing side ----
+    head(hexWin ? 'SURVIVING SHAPES' : 'HEXAGONERS', lw / 2, hexWin ? '#bcd7ff' : P.hexred);
+    const grid = (list, x0, w, draw) => { const per = Math.max(1, Math.floor(w / 36)), rowsN = Math.max(1, Math.ceil(list.length / per)), cell = Math.min(40, (bottom - top - 6) / rowsN), y0 = top + 6 + Math.max(0, (bottom - top - 6 - rowsN * cell) / 2); list.forEach((p, i) => { const inRow = Math.min(per, list.length - Math.floor(i / per) * per), x = x0 + w / 2 + ((i % per) - (inRow - 1) / 2) * (w / per), y = y0 + (Math.floor(i / per) + 1) * cell - 6; draw(p, Math.round(x), Math.round(y), i); }); };
+    grid(left, 6, lw - 10, (p, x, y, i) => {
+      if (hexWin) G.drawChar(p.look, 0, 0, x, y - 4); else { const s2 = G.hexagonSprite(p.look); ctx.drawImage(s2, x - s2.width / 2, y - s2.height - 2); }
+      G.tiny(p.name, x, y - 1, hexWin ? '#bcd7ff' : P.pink, 'c');
+    });
+    if (!left.length) G.tiny('NONE', lw / 2, (top + bottom) / 2, P.grey, 'c');
+    // ---- right: ghosts of everyone who was turned into a piece ----
+    head('SPIRITS', rx + (G.W - rx) / 2, '#bcd7ff');
+    grid(fallen, rx + 2, G.W - rx - 4, (p, x, y, i) => {
+      G.drawGhost(p.look, 0, x, y - 6 + Math.round(Math.sin(t * 2.5 + i) * 3), 0.7, t + i);
+      G.tiny(p.name, x, y - 1, '#bcd7ff', 'c');
+    });
+    if (!fallen.length) G.tiny('NONE', rx + (G.W - rx) / 2, (top + bottom) / 2, P.grey, 'c');
+    // dividers
+    ctx.fillStyle = 'rgba(255,255,255,0.12)'; ctx.fillRect(lw, top + 4, 1, bottom - top - 4); ctx.fillRect(rx, top + 4, 1, bottom - top - 4);
   }
 
   // ---------- OVERLAYS ----------
