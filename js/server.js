@@ -7,7 +7,7 @@ const Server = {};
   const T = World.T;
   const DEF = {
     hexCount: 1, types: 'random', allowed: { classic: true, shift: true, plant: true }, hexCd: 30, plantCd: 30, markFade: 60, shiftDur: 20, shiftCd: 30,
-    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick', squareff: 1
+    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick', squareff: 1, map: 'workshop', mode: 'hex'
   };
   Server.DEF = DEF;
   // Fair Fisher-Yates shuffle with crypto randomness: every player has exactly the same chance.
@@ -152,6 +152,7 @@ const Server = {};
   const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
   function visionOf(p) {
     if (!p.alive) return 9999; if (st.phase !== 'play') return 9999;
+    if (st.mode === 'maze') return p.role === 'mino' ? MAZE.vis.mino : MAZE.vis.runner;
     if (p.role === 'hex') return VIS.hex + (p.type === 'classic' ? 14 : 0);
     if (p.sq) return VIS.shape; // the Squareff isn't affected by Lights Out
     return st.sab.k === 'lights' ? VIS.dark : VIS.shape;
@@ -169,8 +170,10 @@ const Server = {};
   function startGame(practice) {
     const ps = [...st.players.values()].filter(p => !p.left);
     const n = ps.length, S = st.settings;
+    if (!practice && S.mode === 'maze') return startMaze(ps);
+    st.mode = 'hex';
     if (!practice) { if (n < 4) return 'Need at least 4 players.'; if (!Server.hexValid(S.hexCount, n)) return 'Too many Hexagoners for this many players.'; }
-    st.map = World.buildWorkshop();
+    st.mapId = st.settings.map === 'random' ? World.MAP_IDS[rnd(World.MAP_IDS.length)] : st.settings.map; st.map = World.buildMap(st.mapId);
     st.bodies = []; st.marks = []; st.sab = { k: null }; st.sabCd = 15; st.meeting = null; st.over = null; st.rattle = {}; st.matchT = S.matchTime * 60; st.bellCd = 15;
     // roles: completely random each round
     const sh = shuffle(ps);
@@ -199,6 +202,63 @@ const Server = {};
     }
     return null;
   }
+  // ===================== MINOTAUR MAZE =====================
+  const MAZE = { head: 10, time: 240, catchR: 13, keyR: 16, exitR: 20, vis: { runner: 110, mino: 135 } };
+  function startMaze(ps) {
+    if (ps.length < 2) return 'You need at least 2 players for the Minotaur Maze.';
+    st.mode = 'maze'; const seed = 1 + rnd(2000000000); st.mapId = 'maze:' + seed; st.map = World.buildMaze(seed);
+    st.bodies = []; st.marks = []; st.sab = { k: null }; st.meeting = null; st.over = null; st.rattle = {};
+    const order = shuffle(ps), mino = order[0];
+    st.maze = { mino: mino.id, head: MAZE.head, time: MAZE.time, keys: st.map.keys.map(k => ({ x: k.x, y: k.y, got: null })), open: false };
+    ps.forEach((p, i) => {
+      p.alive = true; p.left = false; p.knownDead = false; p.role = p === mino ? 'mino' : 'runner'; p.type = null; p.sq = false; p.escaped = false; p.caught = false; p.shiftAs = null;
+      p.tasks = []; p.stats = z(); p.stats.keys = 0; p.stats.caught = 0; p.vote = null; p.hold = -1; p.camOn = false; p.goal = null; p.ready = false;
+      const s = p === mino ? st.map.minoStart : st.map.seats[i % 20]; teleport(p, s[0], s[1]);
+    });
+    st.phase = 'reveal'; st.phaseT = 5.5; st.rosterDirty = true;
+    for (const p of ps) send(p.id, { t: 'e', k: 'reveal', mode: 'maze', role: p.role, mates: [] });
+    return null;
+  }
+  function mazeTick(dt) {
+    const Z = st.maze, mino = st.players.get(Z.mino);
+    if (!mino || mino.left) { gameOver('runners', 'The Minotaur left the maze!'); return; }
+    Z.head = Math.max(0, Z.head - dt); Z.time -= dt;
+    const runners = [...st.players.values()].filter(p => p.role === 'runner' && !p.left);
+    for (const p of runners) {
+      if (!p.alive) continue;
+      if (Z.head <= 0 && Math.hypot(p.x - mino.x, p.y - mino.y) < MAZE.catchR) { p.alive = false; p.caught = true; mino.stats.caught++; sendAll({ t: 'e', k: 'caught', id: p.id, x: p.x, y: p.y }); continue; }
+      for (const k of Z.keys) if (!k.got && Math.hypot(p.x - k.x, p.y - k.y) < MAZE.keyR) { k.got = p.id; p.stats.keys++; sendAll({ t: 'e', k: 'key', id: p.id, n: Z.keys.filter(q => q.got).length }); }
+      if (!Z.open && Z.keys.every(k => k.got)) { Z.open = true; st.map.gateOpen = true; sendAll({ t: 'e', k: 'gate' }); }
+      if (Z.open && Math.hypot(p.x - st.map.exit.x, p.y - st.map.exit.y) < MAZE.exitR) { p.alive = false; p.escaped = true; sendAll({ t: 'e', k: 'escaped', id: p.id }); }
+    }
+    const active = runners.filter(p => p.alive), esc = runners.filter(p => p.escaped).length;
+    if (!active.length || Z.time <= 0) {
+      if (esc > 0) gameOver('runners', esc + ' of ' + runners.length + ' shape' + (runners.length === 1 ? '' : 's') + ' escaped the maze!');
+      else gameOver('mino', Z.time <= 0 ? 'Time ran out! Nobody escaped the maze.' : 'The Minotaur caught everyone!');
+    }
+  }
+  // maze AI: runners grab keys, flee when the Minotaur is close, then run for the exit. The Minotaur hunts.
+  function mazeAi(p, dt) {
+    if (st.phase !== 'play' || !p.alive) { p.mv = 0; return; }
+    const Z = st.maze, mino = st.players.get(Z.mino);
+    if (p.role === 'mino') {
+      if (Z.head > 0) { p.mv = 0; return; }
+      const prey = [...st.players.values()].filter(q => q.role === 'runner' && q.alive).sort((a, b) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(p.x - b.x, p.y - b.y))[0];
+      if (prey) goTo(p, prey.x, prey.y, dt * 1.04); return;
+    }
+    const dm = mino ? Math.hypot(p.x - mino.x, p.y - mino.y) : 999;
+    if (mino && dm < 130 && Z.head <= 0) { // run away: step to the neighbouring tile farthest from the Minotaur
+      const m = st.map, tx = Math.floor(p.x / T), ty = Math.floor((p.y - 2) / T); let best = null, bd = -1;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (ty + dy) * m.w + tx + dx; if (!m.tiles[k]) continue; const d = Math.hypot((tx + dx) * T + 8 - mino.x, (ty + dy) * T + 10 - mino.y); if (d > bd) { bd = d; best = [(tx + dx) * T + 8, (ty + dy) * T + 10]; } }
+      if (best) { goTo(p, best[0], best[1], dt); return; }
+    }
+    if (Z.open) { goTo(p, st.map.exit.x, st.map.exit.y, dt); return; }
+    // each AI runner hunts a DIFFERENT key (so they don't travel in one easy-to-catch pack)
+    const open = Z.keys.filter(k => !k.got), runners = [...st.players.values()].filter(q => q.role === 'runner' && q.alive), idx = runners.indexOf(p);
+    const key = open.length ? open[(idx < 0 ? 0 : idx) % open.length] : null;
+    if (key) goTo(p, key.x, key.y, dt); else p.mv = 0;
+  }
+
   Server.practiceRole = function (type) { // practice: become a Shape, the Squareff or a Hexagoner type
     if (!st || !st.practice) return; const p = st.players.get('h'); p.sq = type === 'squareff'; if (p.sq) type = null;
     if (!p.alive) { p.alive = true; st.bodies = st.bodies.filter(b => b.id !== 'h'); }
@@ -216,10 +276,11 @@ const Server = {};
     switch (msg.t) {
       case 'm': { // movement (client-predicted, validated here)
         if (msg.s !== p.tpSeq) return; // stale after teleport
+        if (st.mode === 'maze' && p.role === 'mino' && st.maze && st.maze.head > 0 && st.phase === 'play') { p.tpSeq++; return; } // the Minotaur waits for the head start
         if (st.phase === 'meeting' || st.phase === 'reveal') return;
         const x = +msg.x, y = +msg.y; if (!isFinite(x) || !isFinite(y)) return;
         const now = performance.now(), dt = Math.min(1, (now - p.lastMove) / 1000); p.lastMove = now;
-        const maxd = 95 * st.settings.speed * (p.alive ? 1 : 1.3) * Math.max(dt, 0.07) + 12;
+        const maxd = 95 * st.settings.speed * (p.alive ? 1 : 1.3) * (p.role === 'mino' ? 1.08 : 1) * Math.max(dt, 0.07) + 12;
         const ghost = !p.alive;
         if (Math.hypot(x - p.x, y - p.y) > maxd || (!ghost && World.hit(st.map, x, y, st.sab.k === 'jam' ? st.sab.room : null) && !World.hit(st.map, p.x, p.y))) { p.tpSeq++; return; }
         p.x = x; p.y = y; p.dir = msg.d & 3; p.mv = msg.v ? 1 : 0;
@@ -379,19 +440,19 @@ const Server = {};
   function checkWin() {
     if (!st || st.practice || st.phase === 'over' || st.phase === 'lobby') return;
     const al = alive(), h = al.filter(p => p.role === 'hex').length, s = al.length - h;
-    if (taskBar() >= 1) return gameOver('shapes', 'The blimp launched! All chores done!');
+    if (taskBar() >= 1) return gameOver('shapes', st.map.winText || 'The blimp launched! All chores done!');
     if (h === 0) return gameOver('shapes', 'All the Hexagoners were voted out!');
     if (h >= s && st.phase !== 'meeting') return gameOver('hex', 'The Hexagoners took over the workshop!');
     if (h >= s && st.phase === 'meeting' && st.meeting.stage === 'result') return gameOver('hex', 'The Hexagoners took over the workshop!');
   }
   function gameOver(winner, reason) {
     st.phase = 'over'; st.phaseT = 60; st.meeting = null;
-    const players = [...st.players.values()].map(p => ({ id: p.id, name: p.name, look: p.look, role: p.role, type: p.type, sq: p.sq ? 1 : 0, alive: p.alive, left: p.left, stats: p.stats }));
+    const players = [...st.players.values()].map(p => ({ id: p.id, name: p.name, look: p.look, role: p.role, type: p.type, sq: p.sq ? 1 : 0, escaped: p.escaped ? 1 : 0, caught: p.caught ? 1 : 0, alive: p.alive, left: p.left, stats: p.stats }));
     st.over = { winner, reason, players }; st.rosterDirty = true;
-    sendAll({ t: 'e', k: 'over', winner, reason, players });
+    sendAll({ t: 'e', k: 'over', winner, reason, players, mode: st.mode });
   }
   function backToLobby() {
-    st.phase = 'lobby'; st.map = World.buildLobby(); st.bodies = []; st.marks = []; st.sab = { k: null }; st.meeting = null; st.over = null;
+    st.phase = 'lobby'; st.mode = 'hex'; st.maze = null; st.map = World.buildLobby(); st.bodies = []; st.marks = []; st.sab = { k: null }; st.meeting = null; st.over = null;
     let i = 0; for (const id of [...st.players.keys()]) { const p = st.players.get(id); if (p.left) { st.players.delete(id); continue; } p.alive = true; p.role = 'shape'; p.type = null; p.shiftAs = null; p.ready = p.bot; p.muteMatch = false; p.tasks = []; const s = st.map.seats[i++ % 20]; teleport(p, s[0], s[1]); }
     st.order = st.order.filter(id => st.players.has(id)); if (!st.hexManual) st.settings.hexCount = Server.suggestHex(st.players.size);
     st.rosterDirty = true; sendAll({ t: 'e', k: 'lobby' });
@@ -453,7 +514,7 @@ const Server = {};
   // ---------- bots (practice dummies / debug ?bots=N) ----------
   const flowCache = {};
   function flowTo(tx, ty) {
-    const m = st.map, key = m.kind + tx + ',' + ty; if (flowCache[key]) return flowCache[key];
+    const m = st.map, key = (m.kind === 'lobby' ? 'lobby' : (st.mapId || m.kind)) + tx + ',' + ty; if (flowCache[key]) return flowCache[key];
     const dist = new Int16Array(m.w * m.h).fill(-1), q = [ty * m.w + tx]; dist[q[0]] = 0;
     while (q.length) { const k = q.shift(), x = k % m.w, y = (k / m.w) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy, nk = ny * m.w + nx; if (nx < 0 || ny < 0 || nx >= m.w || ny >= m.h || dist[nk] >= 0 || !m.tiles[nk] || m.solid[nk]) continue; dist[nk] = dist[k] + 1; q.push(nk); } }
     return flowCache[key] = dist;
@@ -577,9 +638,10 @@ const Server = {};
   function tick(dt, catchingUp) {
     if (!st) return; st.t += dt; st.tick++;
     const S = st.settings;
-    for (const p of st.players.values()) if (p.bot) { if (p.ai && !st.practice && st.phase !== 'lobby') aiTick(p, dt); else botTick(p, dt); }
+    for (const p of st.players.values()) if (p.bot) { if (st.mode === 'maze' && st.phase !== 'lobby') mazeAi(p, dt); else if (p.ai && !st.practice && st.phase !== 'lobby') aiTick(p, dt); else botTick(p, dt); }
     for (const k in st.rattle) { st.rattle[k] -= dt; if (st.rattle[k] <= 0) delete st.rattle[k]; }
     if (st.phase === 'reveal') { st.phaseT -= dt; if (st.phaseT <= 0) { st.phase = 'play'; st.rosterDirty = true; } }
+    else if (st.phase === 'play' && st.mode === 'maze') { mazeTick(dt); if (!st || st.phase !== 'play') return; }
     else if (st.phase === 'play') {
       if (S.matchTime && !st.practice) { st.matchT -= dt; if (st.matchT <= 0) { gameOver('hex', 'The blimp never launched!'); return; } }
       st.bellCd = Math.max(0, st.bellCd - dt);
@@ -628,6 +690,7 @@ const Server = {};
     for (const id of st.order) {
       const p = st.players.get(id); if (!p) continue;
       const e = { id, name: p.name, look: p.look, host: p.host ? 1 : 0, ready: p.ready ? 1 : 0, bot: p.bot ? 1 : 0 };
+      if (st.mode === 'maze' && p.role === 'mino' && st.phase !== 'lobby') e.mino = 1;
       if (st.phase !== 'lobby') {
         e.dead = (p.knownDead || (!viewer.alive && !p.alive) || p.id === viewer.id && !p.alive) ? 1 : 0; e.left = p.left ? 1 : 0;
         if (p.ejected) e.dead = 1;
@@ -636,7 +699,7 @@ const Server = {};
       }
       list.push(e);
     }
-    return { t: 'r', code: st.code, phase: st.phase, settings: st.settings, list, practice: st.practice };
+    return { t: 'r', code: st.code, phase: st.phase, settings: st.settings, list, practice: st.practice, mapId: st.mapId || 'workshop', mode: st.mode || 'hex' };
   }
   function snapshots() {
     st.snapN = (st.snapN || 0) + 1;
@@ -656,7 +719,8 @@ const Server = {};
         let fl = p.alive ? 0 : 1;
         if (v.role === 'hex' && p.role === 'hex' && p !== v && st.phase === 'play') fl |= 2;
         if ((v.role === 'hex' || v.sq) && markOf[p.id] && st.phase === 'play') fl |= 4; // marks: Hexagoners + Squareff
-        if (v.sq && p.shiftAs && st.phase === 'play') fl |= 8; // the Squareff sees a hexagon over disguised Shapeshifters
+        if (v.sq && p.shiftAs && st.phase === 'play') fl |= 8;
+        if (st.mode === 'maze' && p.role === 'mino') fl |= 16; // the Squareff sees a hexagon over disguised Shapeshifters
         ps.push([p.id, Math.round(p.x), Math.round(p.y), p.dir, p.mv, p.shiftAs || p.id, fl]);
       }
       const bodies = st.bodies.filter(b => !v.alive || st.phase !== 'play' || Math.hypot(b.x - v.x, b.y - v.y) <= vr + 30 || (v.camOn && st.map.cams.some(c => Math.hypot(b.x - c.x, b.y - c.y) < 110))).map(b => [b.id, b.obj, b.x, b.y, b.rep ? 1 : 0]);
@@ -666,6 +730,12 @@ const Server = {};
       if (st.sab.k) snap.sab = { k: st.sab.k, t: st.sab.t != null ? Math.ceil(st.sab.t) : 0, sw: st.sab.sw, hold: st.sab.hold ? st.sab.hold.map(x => x ? 1 : 0) : null, room: st.sab.room };
       if (st.phase === 'meeting') snap.m = { st: st.meeting.stage, t: Math.ceil(st.meeting.t), myVote: v.vote };
       if (st.phase === 'reveal') snap.tm = Math.ceil(st.phaseT);
+      if (st.mode === 'maze' && st.maze) {
+        const Z = st.maze, mino = st.players.get(Z.mino), rs = [...st.players.values()].filter(p => p.role === 'runner' && !p.left);
+        snap.mz = { keys: Z.keys.map(k => [k.x, k.y, k.got ? 1 : 0]), open: Z.open ? 1 : 0, head: Math.ceil(Z.head), time: Math.max(0, Math.ceil(Z.time)), esc: rs.filter(p => p.escaped).length, caught: rs.filter(p => p.caught).length, left: rs.filter(p => p.alive).length, mino: Z.mino };
+        if (v.role === 'runner' && v.alive && mino) me.md = Math.round(Math.hypot(v.x - mino.x, v.y - mino.y) / 10) * 10; // for the heartbeat
+        me.role = v.role;
+      }
       if (st.phase === 'over') snap.tm = Math.ceil(st.phaseT);
       const rt = Object.keys(st.rattle); if (rt.length) snap.rt = rt.map(Number);
       // relayed players get 10 updates a second (2 of every 3) to go easy on the free relay

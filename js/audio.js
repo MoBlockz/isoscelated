@@ -1009,6 +1009,13 @@
       sT('sine', 120, 45, h, 0.5, 0.35);
       sN(h, 0.8, 0.08, 'highpass', 4000, 0, 0.6, 0.003, true);
     },
+    heart: function (t) { // friendly "thump-thump" when the Minotaur is near
+      sT('sine', 78, 44, t, 0.16, 0.6); sN(t, 0.05, 0.05, 'lowpass', 300);
+      sT('sine', 70, 40, t + 0.2, 0.13, 0.42);
+    },
+    key: function (t) { sT('square', 988, 0, t, 0.07, 0.07); sT('square', 1319, 0, t + 0.07, 0.07, 0.07); sT('square', 1976, 0, t + 0.14, 0.16, 0.07); },
+    gate: function (t) { sT('sawtooth', 120, 240, t, 0.5, 0.12); sT('square', 523, 0, t + 0.45, 0.12, 0.08); sT('square', 784, 0, t + 0.58, 0.25, 0.08); },
+    caught: function (t) { sT('square', 600, 150, t, 0.3, 0.1); sT('sine', 220, 110, t + 0.05, 0.3, 0.2); },
     chat: function (t) {
       sT('sine', 1320, 0, t, 0.08, 0.07);
       sT('sine', 1760, 0, t + 0.07, 0.14, 0.07);

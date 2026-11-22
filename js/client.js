@@ -81,19 +81,20 @@ const Game = {};
     }
   }
   function onRoster(m) {
-    C.roster = m.list; C.byId = {}; for (const e of m.list) C.byId[e.id] = e; C.settings = m.settings; C.code = m.code;
+    C.roster = m.list; C.byId = {}; for (const e of m.list) C.byId[e.id] = e; C.settings = m.settings; C.code = m.code; C.mapId = m.mapId; C.gmode = m.mode;
     if (m.phase !== C.phase) setPhase(m.phase);
   }
   function setPhase(ph) {
     const old = C.phase; C.phase = ph;
     if (ph === 'lobby') { C.map = World.buildLobby(); C.over = null; C.eject = null; C.meetFx = null; C.reveal = null; C.bodies = []; C.others.clear(); C.overlay = null; C.seenBodies.clear(); C.chatCh = 'all'; }
-    else if (old === 'lobby' && ph !== 'lobby') { C.map = World.buildWorkshop(); C.others.clear(); C.overlay = null; Tasks.close(); if (UI.askOpen()) UI.askClose(null); C.chat = C.chat.slice(-3); }
+    else if (old === 'lobby' && ph !== 'lobby') { C.map = World.buildMap(C.mapId); C.others.clear(); C.overlay = null; Tasks.close(); if (UI.askOpen()) UI.askClose(null); C.chat = C.chat.slice(-3); }
     if (ph === 'meeting') { Tasks.close(); C.overlay = null; C.holding = false; if (UI.askOpen()) UI.askClose(null); }
     if (ph === 'play' && old === 'meeting') { C.chatOpen = false; if (UI.askOpen()) UI.askClose(null); }
   }
   function onSnap(s) {
     if (s.ph !== C.phase) setPhase(s.ph);
     C.snap = s; const mine = s.me; C.mine = mine;
+    if (s.mz && C.map) C.map.gateOpen = !!s.mz.open;
     if (mine.tp[0] !== C.me.tpSeq) { C.me.tpSeq = mine.tp[0]; C.me.x = mine.tp[1]; C.me.y = mine.tp[2]; }
     const now = performance.now(), seen = new Set();
     if (C.lastSnapT) { C.snapGap = (C.snapGap || 66) * 0.9 + Math.min(500, now - C.lastSnapT) * 0.1; C.interpDelay = Math.max(110, Math.min(320, C.snapGap * 1.7)); } C.lastSnapT = now;
@@ -122,7 +123,7 @@ const Game = {};
       case 'reveal':
         C.mySq = !!e.sq;
         if (e.quiet) { UI.say(e.role === 'hex' ? 'You are now a HEXAGONER: ' + TYPE_NAME[e.type] + '. ' + TYPE_INFO[e.type] : e.sq ? 'You are now the SQUAREFF! ' + SQ_INFO : 'You are now a SHAPE.', { auto: 3 }); C.myRole = e.role; C.myType = e.type; break; }
-        C.reveal = { role: e.role, type: e.type, mates: e.mates, t: 0, t0: performance.now() }; C.myRole = e.role; C.myType = e.type; C.chat = []; Snd.sfx('reveal');
+        C.reveal = { role: e.role, type: e.type, mates: e.mates, maze: e.mode === 'maze', t: 0, t0: performance.now() }; C.myRole = e.role; C.myType = e.type; C.chat = []; Snd.sfx('reveal'); C.heartT = 0;
         if (e.practice) C.reveal = null;
         break;
       case 'zap': {
@@ -145,7 +146,7 @@ const Game = {};
       case 'meeting': C.meetFx = { t: 0, t0: performance.now(), reason: e.reason, by: e.by, body: e.body, obj: e.obj }; C.meetCount++; Snd.sfx(e.reason === 'bell' ? 'bell' : 'report'); Snd.sfx('reveal'); Tasks.close(); C.overlay = null; C.card = null; C.chatCh = (C.mine.alive ? 'all' : 'spirit'); break;
       case 'eject': C.eject = { id: e.id, text: e.text, counts: e.counts, skips: e.skips, as: e.as, piece: e.piece, t: 0, t0: performance.now(), look: e.id ? lookOf(e.id) : null }; break;
       case 'resume': C.eject = null; C.meetFx = null; C.chatOpen = false; break;
-      case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
+      case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.mode === 'maze' ? ((e.winner === 'runners') === (C.myRole === 'runner') ? 'fanfare' : 'sad') : e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
       case 'lobby': C.over = null; break;
       case 'chat': if (C.muted.has(e.from)) break; C.chat.push({ ch: e.ch, from: e.from, text: e.text, t: performance.now() }); if (C.chat.length > 60) C.chat.shift(); C.chatFlash = 6; Snd.sfx('chat'); break;
       case 'quick': {
@@ -155,6 +156,10 @@ const Game = {};
       }
       case 'reportlog': UI.say('REPORT about ' + e.name + ' (from ' + e.by + '). Last messages: ' + (e.msgs.length ? e.msgs.map(s => '"' + s + '"').join(' ') : '(none)') + '  You can kick them from the player list.'); break;
       case 'taskok': Snd.sfx('task'); break;
+      case 'caught': G.smoke(e.x, e.y, P.glow, 16); Snd.sfx('caught'); if (e.id === C.id) UI.say('Caught by the Minotaur! You are a Spirit now: float around and cheer the others on.', { auto: 3 }); else toast(nameOf(e.id) + ' was caught!'); break;
+      case 'key': Snd.sfx('key'); toast((e.id === C.id ? 'You' : nameOf(e.id)) + ' found a golden key! (' + e.n + '/3)', P.yellow); break;
+      case 'gate': Snd.sfx('gate'); if (C.map) C.map.gateOpen = true; UI.say('All 3 keys found! The EXIT GATE is open. RUN!', { auto: 2.5, top: true, col: '#e8ffd6' }); break;
+      case 'escaped': Snd.sfx('fanfare'); if (e.id === C.id) UI.say('You ESCAPED the maze! Well done!', { auto: 3 }); else toast(nameOf(e.id) + ' escaped!', P.lime); break;
       case 'snd': Snd.sfx(e.s); break;
     }
   }
@@ -194,14 +199,14 @@ const Game = {};
   function updateMe(dt) {
     const me = C.me;
     let dx = 0, dy = 0;
-    const block = Tasks.active() || UI.sayBlocking() || (C.overlay && C.overlay !== 'quick') || !canMove() || C.reveal || UI.typing();
+    const block = Tasks.active() || UI.sayBlocking() || (C.overlay && C.overlay !== 'quick') || !canMove() || C.reveal || UI.typing() || (C.snap && C.snap.mz && C.myRole === 'mino' && C.snap.mz.head > 0 && C.phase === 'play');
     if (!block) {
       if (UI.held('left')) dx -= 1; if (UI.held('right')) dx += 1; if (UI.held('up')) dy -= 1; if (UI.held('down')) dy += 1;
       if (UI.dpad.id !== null) { dx = UI.dpad.dx; dy = UI.dpad.dy; }
     }
     const l = Math.hypot(dx, dy); if (l > 1) { dx /= l; dy /= l; }
     const ghost = C.phase === 'play' && !C.mine.alive;
-    const sp = (ghost ? 88 : 70) * speedMul();
+    const sp = (ghost ? 88 : 70) * speedMul() * (C.myRole === 'mino' && C.gmode === 'maze' && !ghost ? 1.08 : 1);
     me.mv = l > 0.15 ? 1 : 0;
     if (me.mv) {
       if (Math.abs(dx) > Math.abs(dy)) me.dir = dx < 0 ? 2 : 3; else me.dir = dy < 0 ? 1 : 0;
@@ -289,6 +294,7 @@ const Game = {};
 
     drawWorld(dt, t);
     if (C.phase === 'lobby') drawLobbyHud(dt, t);
+    else if ((C.phase === 'play' || C.phase === 'reveal') && C.gmode === 'maze') drawMazeHud(dt, t);
     else if (C.phase === 'play' || C.phase === 'reveal') drawPlayHud(dt, t);
     if (C.phase === 'meeting') drawMeeting(dt, t);
     if (C.reveal) drawReveal(dt, t);
@@ -311,6 +317,7 @@ const Game = {};
     let alpha = null; if (opts.spirit) alpha = 0.45 + 0.25 * (Math.sin(performance.now() / 90 + x) > 0.6 ? 0 : 1);
     // Spirits FLY: no walking, they float up and down with a wavy ghost tail
     const bob = opts.spirit ? Math.round(Math.sin(performance.now() / 260 + x * 0.1) * 3) - 7 : 0;
+    if (opts.mino && !opts.spirit) { G.drawMinotaur(look, dir, frame, sx, sy); if (name) G.tiny(name + ' (MINOTAUR)', sx, sy - 64, P.orange, 'c'); return; }
     if (opts.spirit) G.drawGhost(look, dir, sx, sy + bob, alpha, performance.now() / 1000 + x * 0.01);
     else G.drawChar(look, dir, frame, sx, sy + bob, alpha);
     let ty = sy - 40 + bob; if (look.hat === 2 || look.hair === 1 || look.hair === 3) ty -= 3;
@@ -337,14 +344,19 @@ const Game = {};
     World.draw(m, camx, camy, { t, rattle: C.rattle, chuteWobble: C.wobble, jam: sab && sab.k === 'jam' ? sab.room : null, switches: sab && sab.k === 'lights', lights: sab && sab.sw, melt: sab && sab.k === 'melt' });
     // drawables sorted by y
     const list = [];
+    if (m.kind === 'maze' && C.snap && C.snap.mz) {
+      for (const k of C.snap.mz.keys) if (!k[2]) list.push({ y: k[1] - 20, f: () => G.drawKey(k[0] - camx, k[1] - camy, t) });
+      const ex = m.exit, gx = ex.x - camx, gy = ex.y - camy, open = C.snap.mz.open;
+      list.push({ y: ex.y - 30, f: () => { G.rect(gx - 18, gy - 26, 36, 6, P.ink); G.rect(gx - 17, gy - 25, 34, 4, open ? P.lime : P.gold); for (let i = -14; i <= 14; i += 7) G.rect(gx + i, gy - 20 + (open ? -14 : 0), 3, open ? 4 : 20, open ? P.lime : '#6b6f8a'); G.text(open ? 'EXIT OPEN' : 'EXIT', gx, gy - 38, open ? P.lime : P.yellow, { al: 'c', ol: P.ink }); } });
+    }
     for (const b of C.bodies) list.push({ y: b[3], f: () => drawBody(b, dt) });
     const iAmSpirit = C.phase === 'play' && !C.mine.alive;
     for (const [id, o] of C.others) {
       if (!o.vis) continue; const spirit = !!(o.fl & 1) && C.phase !== 'lobby';
-      list.push({ y: o.y, f: () => { drawPlayer(lookOf(o.disp), nameOf(o.disp), o.x, o.y, o.dir, o.anim, o.mv, { spirit, hexmate: !!(o.fl & 2), marked: !!(o.fl & 4), disguised: !!(o.fl & 8) }); } });
+      list.push({ y: o.y, f: () => { drawPlayer(lookOf(o.disp), nameOf(o.disp), o.x, o.y, o.dir, o.anim, o.mv, { spirit, hexmate: !!(o.fl & 2), marked: !!(o.fl & 4), disguised: !!(o.fl & 8), mino: !!(o.fl & 16) }); } });
     }
     const myDisp = C.mine.shiftAs || C.id;
-    list.push({ y: me.y, f: () => drawPlayer(lookOf(myDisp), nameOf(myDisp), me.x, me.y, me.dir, me.anim, me.mv, { me: true, spirit: iAmSpirit }) });
+    list.push({ y: me.y, f: () => drawPlayer(lookOf(myDisp), nameOf(myDisp), me.x, me.y, me.dir, me.anim, me.mv, { me: true, spirit: iAmSpirit, mino: C.gmode === 'maze' && C.myRole === 'mino' && C.phase !== 'lobby' }) });
     list.sort((a, b) => a.y - b.y); for (const d of list) d.f();
     drawStationHints(t);
     G.updateFx(dt, camx, camy);
@@ -363,7 +375,7 @@ const Game = {};
   function stationInfo(s) {
     const mine = C.mine || {}, sab = C.snap && C.snap.sab, alive = !!mine.alive;
     switch (s.kind) {
-      case 'task': { const todo = C.phase === 'play' && (mine.tasks || []).some(t => t[0] === s.task && !t[1]); return { name: World.TASKS[s.task], todo, col: P.yellow }; }
+      case 'task': { const todo = C.phase === 'play' && (mine.tasks || []).some(t => t[0] === s.task && !t[1]); return { name: World.questName(C.map, s.task), todo, col: P.yellow }; }
       case 'switch': return { name: 'Light switch', todo: alive && sab && sab.k === 'lights' && !sab.sw[s.sw], col: P.red };
       case 'melt': return { name: 'Meltdown button', todo: alive && sab && sab.k === 'melt', col: P.red };
       case 'cams': return { name: 'Security cameras', todo: false };
@@ -449,7 +461,7 @@ const Game = {};
     }
     G.ctx.drawImage(c, x, y - 2);
   }
-  function drawToasts() { C.toasts.forEach((t, i) => { const y = 40 + i * 12; const w = t.text.length * 8 + 8; G.rect(G.W / 2 - w / 2, y - 2, w, 11, 'rgba(20,14,32,0.8)'); G.text(t.text, G.W / 2, y, t.col || P.white, { al: 'c' }); }); }
+  function drawToasts() { if (C.over || C.reveal) return; C.toasts.forEach((t, i) => { const y = 40 + i * 12; const w = t.text.length * 8 + 8; G.rect(G.W / 2 - w / 2, y - 2, w, 11, 'rgba(20,14,32,0.8)'); G.text(t.text, G.W / 2, y, t.col || P.white, { al: 'c' }); }); }
 
   // ---------- LOBBY HUD ----------
   function drawLobbyHud(dt, t) {
@@ -473,9 +485,9 @@ const Game = {};
     UI.button(bx, by, bw, 18, 'PLAYERS', () => { C.overlay = 'players'; }, { nav: false }); by += 22;
     UI.button(bx, by, bw, 18, host ? 'SETTINGS' : 'RULES', () => { C.overlay = 'hostset'; C.scroll = 0; }, { nav: false }); by += 22;
     if (host) {
-      const S = C.settings, okHex = Server.hexValid(S.hexCount, n), can = n >= 4 && okHex;
-      UI.button(bx, by, bw, 22, 'START', () => { const err = Server.start_game(); if (err) UI.say(err); }, { nav: false, col: can ? P.yellow : P.grey, disabled: !can, onDisabled: () => UI.say(n < 4 ? 'You need at least 4 players to start. Share the code!' : 'Too many Hexagoners for this many players. Change it in SETTINGS.') }); by += 26;
-      if (!can) G.text(n < 4 ? 'Need 4+' : 'Too many HEX', bx + bw / 2, by, P.yellow, { al: 'c', ol: P.ink });
+      const S = C.settings, maze = S.mode === 'maze', okHex = maze || Server.hexValid(S.hexCount, n), can = (maze ? n >= 2 : n >= 4) && okHex;
+      UI.button(bx, by, bw, 22, 'START', () => { const err = Server.start_game(); if (err) UI.say(err); }, { nav: false, col: can ? P.yellow : P.grey, disabled: !can, onDisabled: () => UI.say(n < (maze ? 2 : 4) ? 'You need at least ' + (maze ? 2 : 4) + ' players to start. Share the code or add AI!' : 'Too many Hexagoners for this many players. Change it in SETTINGS.') }); by += 26;
+      if (!can) G.text(n < (maze ? 2 : 4) ? 'Need ' + (maze ? 2 : 4) + '+' : 'Too many HEX', bx + bw / 2, by, P.yellow, { al: 'c', ol: P.ink });
       const bots = C.roster.filter(e => e.bot).length;
       UI.button(bx, by + 10, 40, 16, '+AI', () => Server.addBot(), { nav: false, col: '#cfe0ff', disabled: n >= 20 });
       UI.button(bx + 44, by + 10, 40, 16, '-AI', () => Server.removeBot(), { nav: false, col: '#cfe0ff', disabled: !bots });
@@ -532,7 +544,7 @@ const Game = {};
       if (hex) { /* hexagoners: tasks are only for blending in */ }
       tl.forEach(tk => {
         const st = C.map.stations.find(s2 => s2.task === tk[0]); const room = st ? C.map.rooms[st.room].name : '';
-        const nm = World.TASKS[tk[0]], maxc = Math.floor((pw - 18) / 8);
+        const nm = World.questName(C.map, tk[0]), maxc = Math.floor((pw - 18) / 8);
         G.text(tk[1] ? '✔' : '▶', 6, y + 2, tk[1] ? P.lime : P.yellow); G.text(nm.length > maxc ? nm.slice(0, maxc - 1) + '.' : nm, 15, y + 2, tk[1] ? '#8fbf7a' : P.white);
         if (showRoom) G.tiny(room, 15, y + 11, tk[1] ? P.mid : P.grey); y += rowH;
       });
@@ -581,6 +593,29 @@ const Game = {};
       if (UI.hit('back')) openOv('pause', 'back');
       if (UI.hit('tab')) C.showTasks = C.showTasks === false;
     }
+    drawDpad();
+  }
+
+  // ---------- MINOTAUR MAZE HUD ----------
+  function drawMazeHud(dt, t) {
+    const s = C.snap; if (!s || !s.mz) return; const Z = s.mz, mino = C.myRole === 'mino', alive = !!C.mine.alive;
+    const roleTxt = !alive ? 'SPIRIT' : mino ? 'MINOTAUR' : 'RUNNER', rw = roleTxt.length * 8 + 12;
+    G.rect(3, 3, rw + 2, 15, P.ink); G.rect(4, 4, rw, 13, !alive ? '#5d7fd0' : mino ? '#8a5a3b' : P.green); G.text(roleTxt, 10, 7, P.white);
+    G.tiny(!alive ? 'WATCH AND CHEER!' : mino ? 'CATCH EVERY SHAPE BEFORE THEY ESCAPE!' : 'FIND 3 KEYS, THEN RUN FOR THE EXIT!', 5, 21, P.cream);
+    // keys
+    let kx = rw + 12; for (let i = 0; i < 3; i++) { const got = Z.keys.filter(k => k[2]).length > i; G.rect(kx + i * 16, 4, 14, 13, P.ink); G.rect(kx + i * 16 + 1, 5, 12, 11, got ? P.gold : '#4a3d63'); G.text(got ? '✔' : '?', kx + i * 16 + 3, 7, got ? P.ink : P.grey); }
+    kx += 52; const info = 'ESCAPED ' + Z.esc + '  CAUGHT ' + Z.caught + '  LEFT ' + Z.left; G.tiny(info, kx, 8, P.white);
+    const tt = UI.fmtT(Z.time); G.rect(G.W - tt.length * 8 - 12, 3, tt.length * 8 + 8, 15, P.ink); G.text(tt, G.W - tt.length * 8 - 8, 7, Z.time < 30 && (t * 2 | 0) % 2 ? P.red : P.white);
+    if (Z.head > 0 && C.phase === 'play') { const msg = mino ? 'WAIT... ' + Z.head : 'HEAD START! ' + Z.head; G.box(G.W / 2 - msg.length * 8 - 10, 40, msg.length * 16 + 20, 28, mino ? '#ffe0c2' : '#e2ffd0'); G.text(msg, G.W / 2, 46, mino ? P.dbrown : P.dgreen, { al: 'c', sc: 2 }); }
+    if (Z.open && !mino && alive) G.text('EXIT IS OPEN! RUN!', G.W / 2, 40, (t * 3 | 0) % 2 ? P.lime : P.yellow, { al: 'c', ol: P.ink });
+    let rx = G.W - 4; rx -= 50; smallBtn(rx, 22, 'MENU', () => { C.overlay = 'pause'; }); rx -= 42; smallBtn(rx, 22, 'MAP', () => { C.overlay = 'map'; }); rx -= 58; smallBtn(rx, 22, 'QUICK', () => { C.overlay = 'quick'; });
+    if (C.chat.length && !alive) { const last = C.chat.slice(-3).filter(m => performance.now() - m.t < 8000); if (last.length) { const saved = C.chat; C.chat = last; drawChatLog(4, G.H - (UI.isTouch ? 130 : 66), Math.min(260, G.W - 120), last.length * 10 + 10, 3); C.chat = saved; } }
+    if (!C.overlay && !UI.typing() && !UI.sayBlocking()) { if (UI.hit('map')) openOv('map', 'map'); if (UI.hit('quick') || UI.hit('key:Enter') || UI.hit('chat')) Game.openChat(); if (UI.hit('back')) openOv('pause', 'back'); }
+    // heartbeat: the closer the Minotaur, the faster it thumps (friendly, not scary)
+    if (!mino && alive && C.mine.md != null && C.mine.md < 260 && C.phase === 'play' && Z.head <= 0) {
+      C.heartT = (C.heartT || 0) - dt; if (C.heartT <= 0) { Snd.sfx('heart'); C.heartT = 0.38 + C.mine.md / 260 * 1.0; C.heartPulse = 0.25; }
+    }
+    if (C.heartPulse > 0) { C.heartPulse -= dt; G.ctx.fillStyle = 'rgba(255,60,90,' + (C.heartPulse * 0.5).toFixed(2) + ')'; G.ctx.fillRect(0, 0, G.W, 3); G.ctx.fillRect(0, G.H - 3, G.W, 3); G.ctx.fillRect(0, 0, 3, G.H); G.ctx.fillRect(G.W - 3, 0, 3, G.H); }
     drawDpad();
   }
 
@@ -685,7 +720,12 @@ const Game = {};
     const look = lookOf(C.id); const sc = 3; const spr = G.charSprite(look, 0, Math.floor(t * 4) % 3);
     ctx.drawImage(spr, ox + G.W * 0.18 - spr.width * sc / 2, G.H / 2 - spr.height * sc / 2, spr.width * sc, spr.height * sc);
     const tx = ox + G.W * 0.35, maxc = Math.floor((G.W * 0.62) / 8);
-    G.text('You are a', tx, 30, P.white);
+    G.text(R.maze && R.role === 'mino' ? 'You are the' : 'You are a', tx, 30, P.white);
+    if (R.maze) {
+      const mino = R.role === 'mino'; G.text(mino ? 'MINOTAUR' : 'RUNNER', tx, 44, mino ? P.orange : P.lime, { sc: 2, ol: P.ink }); let y2 = 70;
+      G.wrap(mino ? 'Wait 10 seconds while the Shapes get a head start... then catch them all before they find the 3 golden keys and escape through the exit!' : 'You get a 10 second head start! Find the 3 golden keys hidden in the hedge maze, then run out of the EXIT before the Minotaur catches you. Listen for the heartbeat!', maxc).forEach(l => { G.text(l, tx, y2, P.white); y2 += 10; });
+      return;
+    }
     G.text(hex ? 'HEXAGONER' : 'SHAPE', tx, 44, hex ? P.hexred : P.sky, { sc: 2, ol: P.ink });
     let y = 70;
     if (hex) {
@@ -695,7 +735,7 @@ const Game = {};
       else { G.text('You are the only Hexagoner!', tx, y, P.pink); }
     } else {
       if (C.mySq) { G.text('SPECIAL: THE SQUAREFF', tx, y, P.yellow); y += 13; G.wrap(SQ_INFO, maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; }); y += 2; }
-      else G.wrap('Finish your chores to power the escape blimp. Find the Hexagoners and vote them out!', maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; });
+      else G.wrap((C.map.goal || 'Finish your chores to power the escape blimp.') + ' Find the Hexagoners and vote them out!', maxc).forEach(l => { G.text(l, tx, y, P.white); y += 10; });
       const nh = C.settings.hexCount; y += 6; G.text(nh + ' Hexagoner' + (nh > 1 ? 's are' : ' is') + ' among us...', tx, y, P.hexred);
     }
   }
@@ -703,10 +743,10 @@ const Game = {};
   // ---------- GAME OVER ----------
   function drawOver(dt, t) {
     const O = C.over; O.t = (performance.now() - O.t0) / 1000; const ctx = G.ctx; UI.group('over'); UI.blocker();
-    const sh = O.winner === 'shapes';
+    const sh = O.winner === 'shapes' || O.winner === 'runners';
     ctx.fillStyle = sh ? '#12306a' : '#3a0a1c'; ctx.fillRect(0, 0, G.W, G.H);
     if (sh) for (let i = 0; i < 40; i++) { const x = (i * 53 + Math.sin(t + i) * 20) % G.W, y = ((i * 31 + t * (20 + i % 5 * 10)) % G.H); G.rect(x, G.H - y, 2, 2, [P.yellow, P.pink, P.lime, P.sky][i % 4]); }
-    G.title(sh ? 'SHAPES WIN!' : 'HEXAGONERS WIN!', G.W / 2, 8, G.W > 380 ? 3 : 2, t);
+    const mz = O.mode === 'maze'; G.title(mz ? (O.winner === 'runners' ? 'SHAPES ESCAPED!' : 'MINOTAUR WINS!') : sh ? 'SHAPES WIN!' : 'HEXAGONERS WIN!', G.W / 2, 8, G.W > 380 ? 3 : 2, t);
     G.text(O.reason, G.W / 2, 40, P.white, { al: 'c' });
     if (sh && O.t < 6 && O.reason.indexOf('blimp') >= 0) { const bx = -60 + O.t * 70; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx, 70, 32, 14, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx, 69, 30, 12, 0, 0, 7); ctx.fill(); }
     const cols = Math.max(1, Math.floor((G.W - 8) / 128)), cw = Math.floor((G.W - 8) / cols), chh = Math.min(26, Math.floor((G.H - 84) / Math.ceil(O.players.length / cols)));
@@ -714,6 +754,7 @@ const Game = {};
       const x = 4 + (i % cols) * cw, y = 54 + Math.floor(i / cols) * chh;
       ctx.save(); ctx.beginPath(); ctx.rect(x, y, 22, chh - 1); ctx.clip(); ctx.drawImage(G.charSprite(p.look, 0, 0), x - 3, y - 8); ctx.restore();
       G.text(p.name, x + 24, y + 1, p.role === 'hex' ? P.hexred : P.sky);
+      if (mz) { G.tiny(p.role === 'mino' ? 'MINOTAUR' : p.escaped ? 'ESCAPED!' : 'CAUGHT', x + 24, y + 10, p.role === 'mino' ? P.orange : p.escaped ? P.lime : P.pink); G.tiny(p.role === 'mino' ? 'CAUGHT ' + (p.stats.caught || 0) : 'KEYS ' + (p.stats.keys || 0), x + 24, y + 17, P.light); return; }
       G.tiny(p.role === 'hex' ? 'HEX: ' + TYPE_NAME[p.type] : p.sq ? 'SHAPE: SQUAREFF' : 'SHAPE', x + 24, y + 10, p.role === 'hex' ? P.pink : p.sq ? P.yellow : '#bcd7ff');
       const st = p.stats; G.tiny((p.role === 'hex' ? 'HEX ' + st.hexes + ' FRAME ' + st.framed + ' SHIFT ' + st.shifts : 'TASKS ' + st.tasks) + ' GOOD VOTES ' + st.votes, x + 24, y + 17, P.light);
     });
@@ -855,6 +896,7 @@ const Game = {};
     const sab = C.snap && C.snap.sab;
     if (sab) for (const s of m.stations) { if ((sab.k === 'lights' && s.kind === 'switch' && !sab.sw[s.sw]) || (sab.k === 'melt' && s.kind === 'melt')) if (bl) G.text('!', x0 + s.x * f - 4, y0 + s.y * f - 8, P.red, { ol: P.ink }); }
     if (C.myRole === 'hex' && C.mine.alive) for (const c of m.chutes) G.rect(x0 + c.x * f - 2, y0 + c.y * f - 4, 4, 4, P.blue);
+    if (m.kind === 'maze' && C.snap && C.snap.mz) { for (const k of C.snap.mz.keys) if (!k[2]) G.rect(x0 + k[0] * f - 2, y0 + k[1] * f - 2, 5, 5, P.gold); G.rect(x0 + m.exit.x * f - 3, y0 + m.exit.y * f - 3, 7, 7, C.snap.mz.open ? P.lime : P.red); }
     if (bl) { G.rect(x0 + C.me.x * f - 2, y0 + C.me.y * f - 3, 5, 5, P.ink); G.rect(x0 + C.me.x * f - 1, y0 + C.me.y * f - 2, 3, 3, P.red); }
     G.text('Tap or press M to close', G.W / 2, G.H - 10, P.grey, { al: 'c' });
     if (UI.hit('map') || UI.hit('back')) closeOverlay();
@@ -893,6 +935,7 @@ const Game = {};
       if (C.over) style = C.over.winner === 'shapes' ? 'showdown' : 'treachery';
       else if (C.reveal) { style = C.reveal.role === 'hex' ? 'treachery' : 'jazz'; jz = 'jazz_workshop'; }
       else if (ph === 'meeting') style = 'treachery';
+      else if (ph === 'play' && C.gmode === 'maze') style = C.snap && C.snap.mz && C.snap.mz.open ? 'showdown' : 'treachery';
       else if (ph === 'play') { jz = 'jazz_workshop'; if ((C.snap && C.snap.sab && C.snap.sab.k === 'melt') || (C.snap && C.snap.sd)) style = 'showdown'; }
     }
     if (mode === 'jazz') return jz; if (mode === 'treachery') return 'treachery'; if (mode === 'showdown') return 'showdown';

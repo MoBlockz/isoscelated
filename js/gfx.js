@@ -382,6 +382,27 @@ const G = {};
     else ctx.drawImage(c, Math.round(sx) - 14, Math.round(sy) - SH + 1);
     ctx.restore();
   };
+  G.drawMinotaur = function (look, dir, frame, sx, sy, alpha) {
+    sx = Math.round(sx); sy = Math.round(sy); if (alpha != null) ctx.globalAlpha = alpha;
+    const fur = '#8a5a3b', furD = '#5c3a24', furL = '#b07a52', R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(sx + a, sy + b, w, h); };
+    const step = frame === 1 ? 1 : frame === 2 ? -1 : 0;
+    // legs + hooves
+    R(-8, -10, 6, 10 - (step > 0 ? 1 : 0), P.ink); R(-7, -10, 4, 8 - (step > 0 ? 1 : 0), furD); R(2, -10, 6, 10 - (step < 0 ? 1 : 0), P.ink); R(3, -10, 4, 8 - (step < 0 ? 1 : 0), furD);
+    R(-8, -2 - (step > 0 ? 1 : 0), 6, 2, P.ink); R(2, -2 - (step < 0 ? 1 : 0), 6, 2, P.ink);
+    // your own character is the head (its feet hide inside the bull's shoulders)
+    G.drawChar(look, dir, 0, sx, sy - 20);
+    // torso + arms
+    R(-12, -27, 24, 19, P.ink); R(-11, -26, 22, 17, fur); R(-11, -26, 22, 3, furL); R(-6, -21, 12, 9, '#d8a86c'); R(-1, -21, 1, 9, furD);
+    R(-15, -25, 5, 13, P.ink); R(-14, -24, 3, 11, fur); R(10, -25, 5, 13, P.ink); R(11, -24, 3, 11, fur);
+    R(-15, -13, 5, 3, furD); R(10, -13, 5, 3, furD);
+    // horns on the head
+    const hy = sy - 51; ctx.fillStyle = P.ink; ctx.fillRect(sx - 14, hy + 2, 7, 4); ctx.fillRect(sx + 7, hy + 2, 7, 4); ctx.fillRect(sx - 16, hy - 3, 3, 7); ctx.fillRect(sx + 13, hy - 3, 3, 7);
+    ctx.fillStyle = P.cream; ctx.fillRect(sx - 13, hy + 3, 6, 2); ctx.fillRect(sx + 7, hy + 3, 6, 2); ctx.fillRect(sx - 15, hy - 2, 1, 5); ctx.fillRect(sx + 14, hy - 2, 1, 5);
+    ctx.globalAlpha = 1;
+  };
+  G.drawKey = function (sx, sy, t) { const y = Math.round(sy - 10 + Math.sin(t * 4) * 2), x = Math.round(sx); const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
+    R(-5, -4, 7, 7, P.ink); R(-4, -3, 5, 5, P.gold); R(-3, -2, 3, 3, P.ink); R(1, -1, 8, 3, P.ink); R(2, 0, 6, 1, P.gold); R(5, 1, 2, 3, P.ink); R(5, 1, 1, 2, P.gold); R(-3, -3, 1, 1, '#fff');
+    if (((t * 6) | 0) % 3 === 0) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 8, y - 6, 1, 3); ctx.fillRect(x + 7, y - 5, 3, 1); } };
   // draw character at world pos (feet) on ctx
   G.drawChar = function (look, dir, frame, sx, sy, alpha) {
     const c = G.charSprite(look, dir, frame);

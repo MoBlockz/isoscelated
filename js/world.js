@@ -3,6 +3,7 @@
 const World = {};
 (function () {
   const T = 16; World.T = T;
+  const CENTRES = ['blimp', 'drawbridge', 'dragonboat', 'timemachine'];
   const P = G.P;
   // task kinds (mini-games) with their station room/prop
   World.TASKS = {
@@ -109,6 +110,121 @@ const World = {};
     return m;
   };
 
+  // ===================== MAP THEMES =====================
+  // Every map is the same proven floor plan, flipped (so routes differ), with its own rooms, colours, props and quests.
+  World.MAPS = {
+    workshop: {
+      name: 'Toy Workshop', flip: [0, 0], goal: 'Finish your chores to power the escape BLIMP.', win: 'The blimp launched! All chores done!', centre: 'blimp',
+      hall: [['#d6cfc0', '#cdc5b4'], '#8b8174'], props: {}, quests: null, cams: ['Blimp Dock', 'Gear Hall', 'Candy Hall', 'Boiler Hall']
+    },
+    castle: {
+      name: 'Medieval Castle', flip: [1, 0], goal: 'Finish your quests to lower the DRAWBRIDGE and escape.', win: 'The drawbridge came down! Everyone escaped!', centre: 'drawbridge',
+      hall: [['#a9a39a', '#9c958b'], '#5e5a63'],
+      rooms: [['Banner Hall', ['#b7a58a', '#a99678'], '#7a3b3b', 'plank'], ['Blacksmith', ['#8e8a86', '#827d79'], '#4d4a52', 'plate'], ['Library Tower', ['#9b8366', '#8e775b'], '#5b4636', 'carpet'],
+        ['Treasury', ['#d9c17a', '#cdb46a'], '#7d6327', 'check'], ['Great Kitchen', ['#c7b49a', '#bba68a'], '#7a5a3c', 'tile'], ['Throne Room', ['#b03a46', '#a2323d'], '#55505f', 'carpet'],
+        ['Minstrel Hall', ['#a7927e', '#9a8571'], '#5a3d55', 'plank'], ['Watchtower', ['#9a9a9a', '#8d8d8d'], '#4a4a55', 'plate'], ['Royal Stables', ['#c4a55f', '#b89752'], '#6b5530', 'plank'], ['Dungeon', ['#6d6a72', '#625f67'], '#2f2d35', 'plate']],
+      props: { plant: 'torch', shelf: 'banner', crate: 'barrel', drum: 'armor', piano: 'throne', conveyor: 'tapestry', easel: 'shieldrack', toybox: 'chest', counter: 'longtable', table: 'roundtable' },
+      quests: { pipes: 'Tie the banners', gears: 'Fix drawbridge', code: 'Crack vault lock', yarn: 'Mend tapestry', sort: 'Sort the armour', cupcake: 'Ice royal cake', compass: 'Aim catapult', windbox: 'Ring the bells', keycard: 'Slide gate key', rings: 'Stack shields', matchtoys: 'Match 3 goblets', gauge: 'Fill the moat', candy: 'Stock larder' },
+      cams: ['Throne Room', 'Smithy Hall', 'Kitchen Hall', 'Dungeon Hall']
+    },
+    palace: {
+      name: 'Sakura Palace', flip: [0, 1], goal: 'Finish your tasks to launch the DRAGON BOAT and sail away.', win: 'The dragon boat set sail! Everyone escaped!', centre: 'dragonboat',
+      hall: [['#d8c9a0', '#cdbd92'], '#7a2e2e'],
+      rooms: [['Koi Garden', ['#a9d18e', '#9cc481'], '#3f6b3a', 'carpet'], ['Water Wheel Room', ['#c9b48d', '#bea880'], '#6b3a2a', 'plank'], ['Scroll Library', ['#d9c7a0', '#cdbb92'], '#7a2e2e', 'plank'],
+        ['Treasure Vault', ['#d8b65a', '#cca94d'], '#5c2a2a', 'check'], ['Tea Kitchen', ['#cfdcb0', '#c3d1a3'], '#6b3a2a', 'tile'], ['Great Hall', ['#d6cfa2', '#cac294'], '#a3303a', 'tile'],
+        ['Taiko Hall', ['#c99a7a', '#bd8e6e'], '#7a2e2e', 'plank'], ['Watch Tower', ['#b9b0a0', '#ada493'], '#4a3a3a', 'plate'], ['Dojo', ['#d8cf9a', '#ccc28c'], '#6b3a2a', 'tile'], ['Bath House', ['#a8cfd8', '#9bc3cc'], '#3a6b78', 'check']],
+      props: { plant: 'bonsai', shelf: 'scrolls', crate: 'lacquerbox', drum: 'taiko', piano: 'koto', conveyor: 'bamboo', easel: 'foldscreen', toybox: 'basket', counter: 'lowtable', table: 'roundtable', paintcans: 'lanterns' },
+      quests: { pipes: 'Bamboo pipes', gears: 'Fix water wheel', code: 'Open puzzle box', yarn: 'Untangle kite', sort: 'Sort the mochi', cupcake: 'Paint the fan', compass: 'Point the compass', windbox: 'Play the taiko', keycard: 'Slide shoji door', rings: 'Stack lanterns', matchtoys: 'Match 3 dolls', gauge: 'Fill the bath', candy: 'Fill rice bowls' },
+      cams: ['Great Hall', 'Wheel Hall', 'Tea Hall', 'Bath Hall']
+    },
+    jurassic: {
+      name: 'Jurassic Manor', flip: [1, 1], goal: 'Finish your jobs to power the TIME MACHINE and escape.', win: 'The time machine fired up! Everyone escaped!', centre: 'timemachine',
+      hall: [['#a7b58a', '#9aa87d'], '#4d3b2a'],
+      rooms: [['Fossil Lab', ['#d8c7a0', '#ccbb92'], '#5c4630', 'tile'], ['Crane Room', ['#a39a8a', '#978e7e'], '#4a4035', 'plate'], ['Map Room', ['#b99a72', '#ad8e66'], '#4d3b2a', 'carpet'],
+        ['Egg Nursery', ['#e8d9a8', '#ddcd9a'], '#7a5a2a', 'check'], ['Dino Kitchen', ['#c7d1a3', '#bbc596'], '#4d5a2a', 'tile'], ['Grand Hall', ['#8fb37a', '#83a76e'], '#3e5a2e', 'carpet'],
+        ['Music Room', ['#b59ac2', '#a98eb6'], '#4d3b5a', 'plank'], ['Lookout', ['#a6a6a0', '#9a9a93'], '#3e3e38', 'plate'], ['Trophy Room', ['#c9a06a', '#bd945e'], '#5c3a1e', 'plank'], ['Volcano Cellar', ['#9a6a5a', '#8e5e4e'], '#4a1e1e', 'plate']],
+      props: { plant: 'fern', shelf: 'fossilshelf', crate: 'eggnest', drum: 'bones', piano: 'skull', conveyor: 'vines', easel: 'dinomap', toybox: 'log', counter: 'longtable', table: 'roundtable' },
+      quests: { pipes: 'Sprinkler pipes', gears: 'Fix fossil crane', code: 'Unlock egg vault', yarn: 'Untangle vines', sort: 'Sort dino eggs', cupcake: 'Trace the fossil', compass: 'Aim telescope', windbox: 'Calm the raptor', keycard: 'Swipe gate pass', rings: 'Stack the bones', matchtoys: 'Match footprints', gauge: 'Fill cooling tank', candy: 'Feed baby dinos' },
+      cams: ['Grand Hall', 'Crane Hall', 'Kitchen Hall', 'Cellar Hall']
+    },
+  };
+  World.MAP_IDS = Object.keys(World.MAPS);
+  World.questName = (m, k) => (m && m.quests && m.quests[k]) || World.TASKS[k];
+  // flip a finished map left-right and/or top-bottom (keeps everything reachable, changes every route)
+  function flipMap(m, fx, fy) {
+    if (!fx && !fy) return m;
+    const stationRoom = s => { s.room = m.room[Math.floor(s.y / T) * m.w + Math.floor(s.x / T)]; };
+    const W = m.w, H = m.h, mapI = k => { const x = k % W, y = (k / W) | 0; return (fy ? H - 1 - y : y) * W + (fx ? W - 1 - x : x); };
+    for (const key of ['tiles', 'room', 'solid']) { const a = m[key], b = new a.constructor(a.length); for (let k = 0; k < a.length; k++) b[mapI(k)] = a[k]; m[key] = b; }
+    const R = r => { if (fx) r.x = W - r.x - r.w; if (fy) r.y = H - r.y - r.h; };
+    const Pt = o => { if (fx) o.x = W * T - o.x; if (fy) o.y = H * T - o.y; };
+    m.rooms.forEach(R); m.props.forEach(R); m.stations.forEach(Pt); m.chutes.forEach(Pt); m.cams.forEach(Pt);
+    m.seats = m.seats.map(([x, y]) => [fx ? W * T - x : x, fy ? H * T - y : y]); m.spawn = [fx ? W * T - m.spawn[0] : m.spawn[0], fy ? H * T - m.spawn[1] : m.spawn[1]];
+    const nd = {}; for (const r in m.doors) nd[r] = m.doors[r].map(mapI); m.doors = nd;
+    m.stations.forEach(stationRoom); m.chutes.forEach(stationRoom);
+    return m;
+  }
+  // ---------- MINOTAUR MAZE: a friendly garden hedge maze (seeded, so every player builds the same one) ----------
+  function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  World.buildMaze = function (seed) {
+    const R = mulberry(seed | 0), CW = 17, CH = 11, w = CW * 3 + 1, h = CH * 3 + 1;
+    const m = makeMap(w, h); m.kind = 'maze'; m.theme = 'maze'; m.title = 'Minotaur Maze'; m.hedge = true;
+    m.hallFloor = ['#9ccf6a', '#90c45e']; m.hallWall = '#2f7a3a';
+    m.rooms.push({ i: 0, name: 'Hedge Maze', x: 0, y: 0, w, h, floor: ['#a6d673', '#9acb66'], wall: '#2f7a3a', style: 'check' });
+    const cellX = c => 1 + c * 3, open = (x, y, ww, hh) => carve(m, x, y, ww, hh, 0);
+    const seen = new Uint8Array(CW * CH), stack = [], cx0 = CW >> 1, cy0 = CH >> 1, links = [];
+    const link = (a, b) => { links.push([a, b]); const ax = a % CW, ay = (a / CW) | 0, bx = b % CW, by = (b / CW) | 0; open(Math.min(cellX(ax), cellX(bx)), Math.min(cellX(ay), cellX(by)), Math.abs(ax - bx) * 3 + 2, Math.abs(ay - by) * 3 + 2); };
+    for (let c = 0; c < CW * CH; c++) open(cellX(c % CW), cellX((c / CW) | 0), 2, 2);
+    // carve a perfect maze (recursive backtracker) from the centre
+    let cur = cy0 * CW + cx0; seen[cur] = 1; stack.push(cur);
+    while (stack.length) {
+      cur = stack[stack.length - 1]; const x = cur % CW, y = (cur / CW) | 0, nb = [];
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < CW && ny < CH && !seen[ny * CW + nx]) nb.push(ny * CW + nx); }
+      if (!nb.length) { stack.pop(); continue; }
+      const n = nb[Math.floor(R() * nb.length)]; seen[n] = 1; link(cur, n); stack.push(n);
+    }
+    // extra openings make loops, so runners can circle around the Minotaur
+    for (let i = 0; i < CW * CH * 0.14; i++) { const x = Math.floor(R() * (CW - 1)), y = Math.floor(R() * (CH - 1)), a = y * CW + x; link(a, R() < 0.5 ? a + 1 : a + CW); }
+    // the open plaza in the middle (where everyone starts and the Minotaur waits)
+    open(cellX(cx0 - 1), cellX(cy0 - 1), 8, 8);
+    // distances from the centre (for keys + exit far away)
+    const adj = Array.from({ length: CW * CH }, () => []); for (const [a, b] of links) { adj[a].push(b); adj[b].push(a); }
+    for (let y = cy0 - 1; y <= cy0 + 1; y++) for (let x = cx0 - 1; x <= cx0 + 1; x++) for (const [dx, dy] of [[1, 0], [0, 1]]) if (x + dx <= cx0 + 1 && y + dy <= cy0 + 1) { adj[y * CW + x].push((y + dy) * CW + x + dx); adj[(y + dy) * CW + x + dx].push(y * CW + x); }
+    const dist = new Int16Array(CW * CH).fill(-1), q = [cy0 * CW + cx0]; dist[q[0]] = 0;
+    while (q.length) { const c = q.shift(); for (const n of adj[c]) if (dist[n] < 0) { dist[n] = dist[c] + 1; q.push(n); } }
+    const centre = c => [(cellX(c % CW) + 1) * T, (cellX((c / CW) | 0) + 1) * T + 4];
+    // exit: the farthest cell on the outer edge, with a gate through the hedge
+    let ex = -1; for (let c = 0; c < CW * CH; c++) { const x = c % CW, y = (c / CW) | 0; if (x === 0 || y === 0 || x === CW - 1 || y === CH - 1) if (ex < 0 || dist[c] > dist[ex]) ex = c; }
+    const exX = ex % CW, exY = (ex / CW) | 0; let gx, gy, gw = 2, gh = 2;
+    if (exX === 0) { gx = 0; gy = cellX(exY); gw = 1; } else if (exX === CW - 1) { gx = w - 1; gy = cellX(exY); gw = 1; } else if (exY === 0) { gx = cellX(exX); gy = 0; gh = 1; } else { gx = cellX(exX); gy = h - 1; gh = 1; }
+    open(gx, gy, gw, gh); m.gate = []; for (let j = gy; j < gy + gh; j++) for (let i = gx; i < gx + gw; i++) m.gate.push(j * w + i);
+    m.exit = { x: (gx + gw / 2) * T, y: (gy + gh / 2) * T + 4 }; m.gateOpen = false;
+    // 3 golden keys at far-apart dead ends
+    const ends = []; for (let c = 0; c < CW * CH; c++) if (adj[c].length === 1 && c !== ex) ends.push(c);
+    ends.sort((a, b) => dist[b] - dist[a]); const keys = [];
+    for (const c of ends) { if (keys.length >= 3) break; const [x, y] = centre(c); if (keys.every(k => Math.hypot(k.x - x, k.y - y) > 9 * T) && Math.hypot(x - m.exit.x, y - m.exit.y) > 6 * T) keys.push({ x, y }); }
+    for (const c of ends) { if (keys.length >= 3) break; const [x, y] = centre(c); if (!keys.some(k => k.x === x && k.y === y)) keys.push({ x, y }); }
+    m.keys = keys;
+    m.spawn = centre(cy0 * CW + cx0); m.seats = [];
+    for (let i = 0; i < 20; i++) { const a = i / 20 * Math.PI * 2; m.seats.push([Math.round(m.spawn[0] + Math.cos(a) * 52), Math.round(m.spawn[1] + Math.sin(a) * 44)]); }
+    m.minoStart = [m.spawn[0], m.spawn[1]];
+    // a few flower pots in the plaza
+    m.cams = []; m.chutes = [];
+    return m;
+  };
+
+  World.buildMap = function (id) {
+    if (String(id).startsWith('maze:')) return World.buildMaze(+String(id).slice(5));
+    const T2 = World.MAPS[id] ? id : 'workshop', th = World.MAPS[T2];
+    const m = flipMap(World.buildWorkshop(), th.flip[0], th.flip[1]);
+    m.theme = T2; m.title = th.name; m.goal = th.goal; m.winText = th.win; m.quests = th.quests;
+    m.hallFloor = th.hall[0]; m.hallWall = th.hall[1];
+    if (th.rooms) th.rooms.forEach((r, i) => { Object.assign(m.rooms[i], { name: r[0], floor: r[1], wall: r[2], style: r[3] }); });
+    for (const p of m.props) { if (p.k === 'blimp') p.k = th.centre; else if (th.props[p.k]) p.k = th.props[p.k]; }
+    m.cams.forEach((c, i) => c.name = th.cams[i] || c.name);
+    return m;
+  };
+
   World.buildLobby = function () {
     const m = makeMap(24, 14); m.kind = 'lobby'; m.hallFloor = ['#e9d9c4', '#dfcbb2']; m.hallWall = '#8b8174';
     m.rooms.push({ i: 0, name: 'Lobby', x: 2, y: 2, w: 20, h: 10, floor: ['#f1dfb8', '#e7d1a2'], wall: '#b0603e', style: 'plank' }); carve(m, 2, 2, 20, 10, 0);
@@ -125,6 +241,7 @@ const World = {};
     const tx = Math.floor(px / T), ty = Math.floor(py / T);
     if (tx < 0 || ty < 0 || tx >= m.w || ty >= m.h) return true;
     const k = ty * m.w + tx; if (!m.tiles[k]) return true;
+    if (m.gate && !m.gateOpen && m.gate.indexOf(k) >= 0) return true;
     if (m.solid[k] && propPixel(m.props[m.solid[k] - 1], px, py)) return true; // only where the prop is actually drawn
     if (jam != null && m.doors[jam] && m.doors[jam].indexOf(k) >= 0) return true;
     return false;
@@ -137,7 +254,7 @@ const World = {};
     try {
       const sp = World.propSprite(p), w = sp.width, h = sp.height, d = sp.getContext('2d').getImageData(0, 0, w, h).data;
       const mk = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) mk[i] = d[i * 4 + 3] > 40 ? 1 : 0;
-      p.mask = { w, h, ox: p.x * T - 1, oy: p.y * T - (p.k === 'blimp' ? 6 : 0), d: mk };
+      p.mask = { w, h, ox: p.x * T - 1, oy: p.y * T - (CENTRES.includes(p.k) ? 6 : 0), d: mk };
     } catch (e) { p.mask = null; } // no canvas (e.g. tests in Node): fall back to the whole tile being solid
     return p.mask;
   }
@@ -187,12 +304,14 @@ const World = {};
         const below = ty + 1 < m.h && m.tiles[k + m.w];
         // find owning wall colour from neighbours
         let wc = m.hallWall; for (const d of [m.w, -m.w, 1, -1, m.w + 1, m.w - 1]) { const r = m.room[k + d]; if (r >= 0) { wc = m.rooms[r].wall; break; } }
-        if (below) { // wall face
+        if (below && m.hedge) { x.fillStyle = '#2f7a3a'; x.fillRect(X, Y, T, T); x.fillStyle = '#45994d'; x.fillRect(X, Y, T, 4); x.fillStyle = '#25602d'; x.fillRect(X, Y + 13, T, 3); x.fillStyle = '#3d8a45'; for (let i = 0; i < 5; i++) x.fillRect(X + ((hash(tx * 5 + i, ty) * 14) | 0), Y + 4 + ((hash(tx, ty * 3 + i) * 8) | 0), 2, 2); }
+        else if (below) { // wall face
           x.fillStyle = wc; x.fillRect(X, Y, T, T); x.fillStyle = G.shade(wc, 1.18); x.fillRect(X, Y, T, 3); x.fillStyle = G.shade(wc, 0.78); x.fillRect(X, Y + 14, T, 2);
           x.fillStyle = G.shade(wc, 0.9); if (tx % 2) x.fillRect(X + 3, Y + 6, 10, 1); else x.fillRect(X + 7, Y + 4, 1, 8);
         } else {
           let near = false; for (const d of [1, -1, m.w, -m.w, m.w + 1, m.w - 1, -m.w + 1, -m.w - 1]) if (m.tiles[k + d]) near = true;
-          if (near) { x.fillStyle = '#2a2236'; x.fillRect(X, Y, T, T); x.fillStyle = '#3a3049'; x.fillRect(X + 1, Y + 1, T - 2, T - 2); }
+          if (near && m.hedge) { x.fillStyle = '#2d6b34'; x.fillRect(X, Y, T, T); x.fillStyle = '#3d8a45'; for (let i = 0; i < 7; i++) x.fillRect(X + ((hash(tx * 3 + i, ty) * 14) | 0), Y + ((hash(tx, ty * 7 + i) * 14) | 0), 2, 2); if (hash(tx, ty) < 0.15) { x.fillStyle = hash(ty, tx) < 0.5 ? P.pink : P.yellow; x.fillRect(X + 6, Y + 6, 3, 3); } }
+          else if (near) { x.fillStyle = '#2a2236'; x.fillRect(X, Y, T, T); x.fillStyle = '#3a3049'; x.fillRect(X + 1, Y + 1, T - 2, T - 2); }
         }
       }
     }
@@ -204,7 +323,7 @@ const World = {};
   function R(x, a, b, w, h, c) { x.fillStyle = c; x.fillRect(a, b, w, h); }
   function drawPropSprite(p) {
     const key = p.k + p.w + 'x' + p.h; if (propCache[key]) return propCache[key];
-    const W = p.w * T, H = p.h * T + (p.k === 'blimp' ? 8 : 0); const [c, x] = G.mk(W + 2, H + 10);
+    const W = p.w * T, H = p.h * T + (CENTRES.includes(p.k) ? 8 : 0); const [c, x] = G.mk(W + 2, H + 10);
     const o = 1; // offset for outline
     switch (p.k) {
       case 'paintcans': for (let i = 0; i < p.w * 2; i++) { const cc = [P.red, P.blue, P.yellow, P.green, P.purple, P.orange][i % 6]; R(x, o + 1 + i * 8, 6, 7, 9, P.grey); R(x, o + 1 + i * 8, 6, 7, 3, cc); R(x, o + 2 + i * 8, 9, 1, 5, P.light); } break;
@@ -247,6 +366,40 @@ const World = {};
       case 'jukebox': R(x, o + 2, 0, W - 4, 16, P.purple); x.fillStyle = P.pink; x.beginPath(); x.arc(o + W / 2, 6, 12, Math.PI, 0); x.fill(); R(x, o + 8, 4, W - 16, 8, P.yellow); for (let i = 10; i < W - 10; i += 3) R(x, o + i, 5, 1, 6, P.orange); R(x, o + 6, 13, W - 12, 2, P.gold); break;
       case 'mirror': R(x, o + 4, 0, W - 8, 16, P.gold); R(x, o + 6, 2, W - 12, 12, P.sky); R(x, o + 8, 3, 3, 8, P.white); break;
       case 'rug': R(x, o, 0, W, H, P.dred); R(x, o + 3, 3, W - 6, H - 6, P.red); R(x, o + 6, 6, W - 12, H - 12, P.orange); R(x, o + 10, 10, W - 20, H - 20, P.yellow); break;
+      // ===== Medieval Castle =====
+      case 'drawbridge': R(x, o + 10, 0, W - 20, 44, '#5e5a63'); for (let i = 0; i < W - 20; i += 12) R(x, o + 10 + i, 0, 10, 6, '#77727e'); R(x, o + 30, 10, W - 60, 34, '#3b2a20'); for (let i = 0; i < W - 64; i += 8) R(x, o + 32 + i, 12, 6, 32, P.brown); R(x, o + 32, 24, W - 64, 2, P.dbrown); R(x, o + 18, 8, 2, 36, '#9a9aa5'); R(x, o + W - 20, 8, 2, 36, '#9a9aa5'); R(x, o + W / 2 - 6, 2, 12, 6, P.gold); break;
+      case 'torch': R(x, o + 7, 5, 2, 10, P.dbrown); R(x, o + 5, 4, 6, 2, P.grey); R(x, o + 6, 0, 4, 4, P.orange); R(x, o + 7, -0, 2, 2, P.yellow); break;
+      case 'banner': for (let i = 0; i < W; i += 16) { R(x, o + i + 2, 0, 12, 2, P.gold); R(x, o + i + 3, 2, 10, 12, i % 32 ? P.dblue : P.dred); R(x, o + i + 6, 5, 4, 4, P.gold); R(x, o + i + 3, 14, 3, 2, i % 32 ? P.dblue : P.dred); R(x, o + i + 10, 14, 3, 2, i % 32 ? P.dblue : P.dred); } break;
+      case 'barrel': for (let i = 0; i < W; i += 16) for (let j = 0; j < H; j += 16) { R(x, o + i + 2, j + 1, 12, 14, P.brown); R(x, o + i + 2, j + 3, 12, 1, P.grey); R(x, o + i + 2, j + 11, 12, 1, P.grey); R(x, o + i + 4, j + 1, 2, 14, P.tan); } break;
+      case 'armor': R(x, o + 4, 0, 8, 6, P.grey); R(x, o + 5, 2, 6, 1, P.ink); R(x, o + 3, 6, 10, 7, P.light); R(x, o + 5, 13, 2, 3, P.grey); R(x, o + 9, 13, 2, 3, P.grey); R(x, o + 13, 2, 1, 12, P.mid); break;
+      case 'throne': R(x, o + W / 2 - 10, 0, 20, H - 4, P.gold); R(x, o + W / 2 - 7, 4, 14, H - 12, P.dred); R(x, o + W / 2 - 13, H - 12, 26, 8, P.gold); R(x, o + W / 2 - 2, 1, 4, 3, P.sky); break;
+      case 'tapestry': R(x, o, 2, W, 12, P.dpurple); for (let i = 3; i < W - 3; i += 6) R(x, o + i, 5, 3, 6, i % 12 ? P.gold : P.pink); R(x, o, 2, W, 2, P.gold); break;
+      case 'shieldrack': R(x, o + 2, 4, W - 4, 2, P.dbrown); for (let i = 0; i < 3; i++) { R(x, o + 4 + i * 9, 6, 8, 10, [P.red, P.blue, P.green][i]); R(x, o + 7 + i * 9, 6, 2, 10, P.gold); } break;
+      case 'chest': R(x, o + 1, 5, 14, 10, P.brown); R(x, o + 1, 3, 14, 4, P.dbrown); R(x, o + 1, 7, 14, 1, P.gold); R(x, o + 7, 6, 2, 3, P.gold); break;
+      case 'longtable': R(x, o, 4, W, 10, P.brown); R(x, o, 4, W, 2, P.tan); for (let i = 6; i < W; i += 14) { R(x, o + i, 6, 6, 4, P.light); R(x, o + i + 1, 5, 4, 2, P.orange); } break;
+      // ===== Sakura Palace =====
+      case 'dragonboat': R(x, o + 20, 24, W - 40, 14, P.red); R(x, o + 24, 22, W - 48, 3, P.gold); R(x, o + 22, 36, W - 44, 4, P.dred); R(x, o + W - 30, 4, 10, 24, P.green); R(x, o + W - 26, 2, 12, 8, P.green); R(x, o + W - 18, 4, 2, 2, P.yellow); R(x, o + W - 22, 10, 4, 2, P.red); R(x, o + 24, 14, 6, 12, P.green); R(x, o + W / 2 - 1, 0, 2, 24, P.dbrown); R(x, o + W / 2 + 1, 2, 22, 16, P.cream); R(x, o + W / 2 + 8, 6, 8, 8, P.red); for (let i = 34; i < W - 36; i += 10) R(x, o + i, 30, 2, 8, P.tan); break;
+      case 'bonsai': R(x, o + 3, 10, 10, 5, P.dbrown); R(x, o + 7, 5, 2, 6, P.brown); R(x, o + 2, 2, 7, 4, P.pink); R(x, o + 8, 0, 6, 4, P.pink); R(x, o + 4, 3, 2, 1, '#fff'); break;
+      case 'scrolls': R(x, o, 0, W, 16, P.dbrown); for (let i = 1; i < W - 2; i += 4) { R(x, o + i, 2, 3, 5, P.cream); R(x, o + i, 9, 3, 5, P.cream); R(x, o + i + 1, 3, 1, 3, P.dred); } break;
+      case 'lacquerbox': for (let i = 0; i < W; i += 16) for (let j = 0; j < H; j += 16) { R(x, o + i + 1, j + 3, 14, 12, P.dred); R(x, o + i + 1, j + 3, 14, 2, P.ink); R(x, o + i + 6, j + 8, 4, 3, P.gold); } break;
+      case 'taiko': R(x, o + 2, 3, 12, 11, P.brown); R(x, o + 2, 2, 12, 3, P.cream); for (let i = 3; i < 14; i += 3) R(x, o + i, 7, 1, 1, P.gold); R(x, o + 1, 12, 14, 2, P.dbrown); break;
+      case 'koto': R(x, o, 8, W, 6, P.tan); R(x, o, 8, W, 1, P.brown); for (let i = 2; i < W - 2; i += 3) R(x, o + i, 9, 1, 4, P.cream); R(x, o + 4, 4, 10, 4, P.dred); break;
+      case 'bamboo': for (let i = 0; i < W; i += 5) { R(x, o + i, 0, 3, 15, P.lime); R(x, o + i, 4, 3, 1, P.dgreen); R(x, o + i, 10, 3, 1, P.dgreen); } break;
+      case 'foldscreen': for (let i = 0; i < 4; i++) { R(x, o + i * 8, 0, 7, H - 2, P.cream); R(x, o + i * 8, 0, 7, 2, P.dbrown); R(x, o + i * 8 + 2, 8, 3, 6, P.pink); } break;
+      case 'basket': R(x, o + 2, 6, 12, 9, P.tan); for (let i = 3; i < 14; i += 3) R(x, o + i, 6, 1, 9, P.brown); R(x, o + 4, 2, 8, 2, P.brown); break;
+      case 'lowtable': R(x, o, 8, W, 5, P.dred); R(x, o, 8, W, 1, P.red); for (let i = 6; i < W; i += 14) { R(x, o + i, 5, 6, 3, P.white); R(x, o + i + 1, 4, 4, 1, P.green); } break;
+      case 'lanterns': for (let i = 0; i < p.w * 2; i++) { R(x, o + 2 + i * 8, 4, 6, 9, P.red); R(x, o + 3 + i * 8, 6, 4, 5, P.orange); R(x, o + 4 + i * 8, 2, 2, 2, P.ink); } break;
+      // ===== Jurassic Manor =====
+      case 'timemachine': R(x, o + 24, 4, W - 48, 34, P.grey); R(x, o + 28, 8, W - 56, 26, '#3a4a5a'); R(x, o + 34, 12, W - 68, 18, '#7ff0ff'); R(x, o + 38, 16, W - 76, 10, '#c9ffff'); for (let i = 0; i < 5; i++) R(x, o + 30 + i * 10, 40, 6, 6, [P.red, P.yellow, P.lime, P.sky, P.pink][i]); R(x, o + 20, 44, W - 40, 6, P.dark); break;
+      case 'fern': R(x, o + 4, 11, 8, 5, P.dbrown); x.fillStyle = P.green; for (const [a, b2] of [[2, 2], [9, 1], [5, 5], [11, 6], [1, 7]]) x.fillRect(o + a, b2, 4, 2); R(x, o + 7, 3, 2, 9, P.dgreen); break;
+      case 'fossilshelf': R(x, o, 0, W, 16, P.dbrown); for (let i = 2; i < W - 6; i += 9) { R(x, o + i, 3, 6, 4, P.cream); R(x, o + i + 1, 10, 5, 3, P.light); R(x, o + i + 2, 4, 1, 2, P.dbrown); } break;
+      case 'eggnest': for (let i = 0; i < W; i += 16) for (let j = 0; j < H; j += 16) { R(x, o + i + 1, j + 10, 14, 5, P.tan); for (let k = 0; k < 3; k++) { R(x, o + i + 2 + k * 4, j + 4, 4, 7, k === 1 ? '#9fe0a8' : P.cream); R(x, o + i + 3 + k * 4, j + 6, 1, 1, P.green); } } break;
+      case 'bones': R(x, o + 1, 9, 14, 3, P.cream); R(x, o, 8, 3, 5, P.light); R(x, o + 13, 8, 3, 5, P.light); R(x, o + 4, 3, 8, 3, P.cream); R(x, o + 3, 2, 3, 5, P.light); break;
+      case 'skull': R(x, o + 4, 2, W - 8, H - 6, P.cream); R(x, o + 8, 6, 6, 6, P.ink); R(x, o + W - 16, H - 14, W - 20, 6, P.light); for (let i = 16; i < W - 8; i += 4) R(x, o + i, H - 9, 2, 4, P.white); break;
+      case 'vines': for (let i = 0; i < W; i += 4) { R(x, o + i, 4 + (i % 8 ? 2 : 0), 3, 9, P.green); R(x, o + i + 1, 6 + (i % 8 ? 2 : 0), 1, 2, P.lime); } break;
+      case 'dinomap': R(x, o + 2, 0, W - 4, H - 4, P.cream); R(x, o + 5, 4, 8, 6, P.green); R(x, o + 15, 10, 8, 8, P.tan); R(x, o + 9, 18, 3, 3, P.red); R(x, o + 6, H - 4, 2, 4, P.dbrown); R(x, o + W - 8, H - 4, 2, 4, P.dbrown); break;
+      case 'log': R(x, o, 5, 16, 10, P.brown); R(x, o, 5, 4, 10, P.tan); R(x, o + 1, 8, 2, 4, P.dbrown); R(x, o + 8, 3, 4, 3, P.green); break;
+      case 'roundtable': x.fillStyle = P.ink; x.beginPath(); x.ellipse(o + W / 2, H / 2 + 2, W / 2, H / 2 - 2, 0, 0, 7); x.fill(); x.fillStyle = P.dbrown; x.beginPath(); x.ellipse(o + W / 2, H / 2, W / 2 - 1, H / 2 - 4, 0, 0, 7); x.fill(); x.fillStyle = P.brown; x.beginPath(); x.ellipse(o + W / 2, H / 2 - 2, W / 2 - 5, H / 2 - 8, 0, 0, 7); x.fill(); break;
       default: R(x, o, 0, W, H, P.mid);
     }
     let cv = c; if (p.k !== 'rug') cv = G.outline(c, P.ink);
@@ -266,7 +419,7 @@ const World = {};
       G.rect(X, Y, T, T, P.dark); G.rect(X + 1, Y + 1, T - 2, T - 2, (((st.t * 4) | 0) % 2) ? P.yellow : P.ink); for (let i = 0; i < T; i += 4) G.rect(X + i, Y + 6, 2, 4, P.ink);
     }
     for (const p of m.props) {
-      const s = drawPropSprite(p); let X = p.x * T - 1 - camx, Y = p.y * T - camy - (p.k === 'blimp' ? 6 : 0);
+      const s = drawPropSprite(p); let X = p.x * T - 1 - camx, Y = p.y * T - camy - (CENTRES.includes(p.k) ? 6 : 0);
       if (X > G.W || Y > G.H || X + s.width < 0 || Y + s.height < 0) continue;
       const rt = st.rattle && st.rattle[p.id]; if (rt && rt > 0) { X += Math.round(Math.sin(st.t * 60) * 2); Y += Math.round(Math.cos(st.t * 47)); }
       if (p.k === 'blimp') Y += Math.round(Math.sin(st.t * 1.5) * 1.5);
@@ -274,7 +427,7 @@ const World = {};
       ctx.drawImage(s, X, Y);
       if (p.k === 'lever') { const sw = st.switches && st.lights; const on = !sw || sw[p.sw != null ? p.sw : (p.x < 20 ? 1 : 0)]; G.rect(X + 7, Y + (on ? 1 : 7), 3, 7, on ? P.lime : P.red); }
       if (p.k === 'button' && st.melt) { if (((st.t * 3) | 0) % 2) G.rect(X + 4, Y + 3, 9, 7, '#ffeb3b'); }
-      if (p.k === 'table' && m.kind === 'workshop') { // meeting bell on top
+      if ((p.k === 'table' || p.k === 'roundtable') && m.kind === 'workshop') { // meeting bell on top
         const bx = X + s.width / 2, by = Y + 10; G.rect(bx - 5, by + 2, 11, 8, P.gold); G.rect(bx - 6, by + 9, 13, 2, P.ink); G.rect(bx - 3, by, 7, 3, P.gold); G.rect(bx - 1, by - 2, 3, 2, P.ink); G.rect(bx - 3, by + 3, 2, 4, P.yellow);
       }
       if (p.k === 'jukebox') { if (((st.t * 2) | 0) % 2) G.text('♥', X + p.w * T - 2, Y - 8 + Math.round(Math.sin(st.t * 4) * 2), P.pink); }

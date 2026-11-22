@@ -166,6 +166,8 @@
       ['Shift duration', S.shiftDur + 's', rng('shiftDur', 10, 40, 5)], ['Shift cooldown', S.shiftCd + 's', rng('shiftCd', 15, 60, 5)], ['Discussion', S.discuss + 's', rng('discuss', 0, 120, 15)],
       ['Voting', S.vote + 's', rng('vote', 15, 180, 15)], ['Meeting Bells', String(S.bells), rng('bells', 0, 3, 1)], ['Match timer', S.matchTime ? S.matchTime + ' min' : 'Off', d => set('matchTime', mt[cyc(mt.indexOf(S.matchTime), 5, d)])],
       ['Player speed', S.speed + 'x', d => set('speed', sp[cyc(sp.indexOf(S.speed), 4, d)])], ['Tasks each', String(S.tasks), rng('tasks', 3, 8, 1)],
+      ['Mode', S.mode === 'maze' ? 'Minotaur Maze' : 'Hexagoners', () => set('mode', S.mode === 'maze' ? 'hex' : 'maze')],
+      ['Map', S.map === 'random' ? 'Random' : (World.MAPS[S.map] || World.MAPS.workshop).name, d => { const ids = World.MAP_IDS.concat(['random']); set('map', ids[cyc(Math.max(0, ids.indexOf(S.map)), ids.length, d)]); }],
       ['Squareff', S.squareff ? 'On (1 Shape)' : 'Off', () => set('squareff', S.squareff ? 0 : 1)],
       ['Reveal on eject', rvN[S.reveal], d => set('reveal', rv[cyc(rv.indexOf(S.reveal), 3, d)])], ['Chat', chN[S.chat] || 'Quick Chat', d => set('chat', chm[cyc(Math.max(0, chm.indexOf(S.chat)), 2, d)])]);
     const top = b.y + 22, vis = Math.floor((b.h - 50) / 14);
@@ -192,6 +194,7 @@
     ['SHAPESHIFTER', 'SHIFT copies another player\'s whole look AND name for 20s. Hex in disguise and witnesses blame the wrong shape! Shifting makes a puff of smoke, so be careful who is watching.', 'shift'],
     ['PLANTER', 'PLANT secretly curses a Shape (a purple mark only Hexagoners can see). The next Shape they walk near gets zapped... FROM the marked player! Now everyone thinks they did it.', 'plant'],
     ['SQUAREFF', 'One random Shape may be the SQUAREFF. They see who is marked by a Planter, a red hexagon over a disguised Shapeshifter, keep their vision in Lights Out, and can read Spirit chat. Help your team without giving yourself away!', 'squareff'],
+    ['MINOTAUR MAZE', 'A second game mode! One player is the MINOTAUR (your own character on a bull body). Everyone else gets a 10 second head start to find 3 golden keys and escape the hedge maze. Hear a heartbeat? The Minotaur is near!', 'maze'],
     ['SPIRITS', 'Turned into a chess piece? You become a Spirit! Float through walls, keep doing chores to help, chat with other Spirits, and RATTLE one object once per game as a hint.', 'spirit'],
     ['HOW TO WIN', 'SHAPES win by filling the chore bar or voting out every Hexagoner. HEXAGONERS win when they equal the Shapes, if the boiler melts down, or if the match timer runs out.', 'win'],
     ['CONTROLS', 'Move: WASD/arrows or the D-pad. E = Use, Q = Hex, F = Special, R = Report, X = Sabotage, M = Map, C = Quick Chat, C or Enter = Quick Chat, Esc = Menu.', 'keys'],
@@ -232,6 +235,7 @@
       G.tiny('MARKED (CAN\'T TELL!)', mx, gy - 54, P.glow, 'c');
     }
     else if (kind === 'squareff') { ch(DUMMY[0], cx - 50, 3, 0); ch(DUMMY[2], cx + 40, 2, 0); const hy = gy - 52 + Math.round(Math.sin(t * 5) * 1.5); for (const [a, b2, w, h] of [[-2, 0, 5, 1], [-3, 1, 1, 1], [3, 1, 1, 1], [-4, 2, 1, 3], [4, 2, 1, 3], [-3, 5, 1, 1], [3, 5, 1, 1], [-2, 6, 5, 1]]) G.rect(cx + 40 + a, hy + b2, w, h, P.hexred); G.tiny('SQUAREFF', cx - 50, gy - 44, P.yellow, 'c'); G.tiny('DISGUISED!', cx + 40, gy - 60, P.hexred, 'c'); }
+    else if (kind === 'maze') { const mx = cx + 60 - k * 140; G.drawMinotaur(DUMMY[3], 2, 1 + (Math.floor(t * 6) % 2), mx, gy); ch(DUMMY[1], cx - 20 - k * 120, 2); G.drawKey(cx - 100, gy - 10, t); }
     else if (kind === 'spirit') { ctx.drawImage(G.bodySprite(3, DUMMY[0]), cx - 60, gy - 32); G.drawChar(DUMMY[0], 3, 0, cx + Math.sin(t) * 30, gy - 10 + Math.sin(t * 3) * 3, 0.5); }
     else if (kind === 'win') { const bx = cx - 100 + k * 200; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx, gy - h / 2, 32, 14, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx, gy - h / 2 - 1, 30, 12, 0, 0, 7); ctx.fill(); }
     else if (kind === 'keys') { ['W', 'A', 'S', 'D'].forEach((c, i) => { const x = cx - 60 + [1, 0, 1, 2][i] * 18, y = gy - 40 + [0, 1, 1, 1][i] * 18; G.box(x, y, 16, 16, P.white); G.text(c, x + 4, y + 4, P.ink); }); ['E', 'Q', 'F', 'R'].forEach((c, i) => { G.box(cx + 10 + i * 20, gy - 22, 16, 16, P.yellow); G.text(c, cx + 14 + i * 20, gy - 18, P.ink); }); }

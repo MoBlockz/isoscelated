@@ -9,6 +9,15 @@ You are living geometric shapes trapped in a giant floating **Toy Workshop**. Fi
 - **Private lobbies only.** You can only play with people who have your 5-letter code. There is no public matchmaking and no strangers.
 - **All music and sound is original** and made live in code with the Web Audio API.
 
+## What's in the game
+
+- **Two game modes** (host picks in SETTINGS):
+  - **Hexagoners**: the social-deduction game. Shapes do quests; hidden Hexagoners (Classic, Shapeshifter, Planter) turn people into chess pieces. One random Shape may be the **Squareff**, who sees Planter marks, a red hexagon over disguised Shapeshifters, keeps their vision in Lights Out and can read Spirit chat.
+  - **Minotaur Maze**: one player is the **Minotaur** (their own character on a bull body). Everyone else gets a 10-second head start to find **3 golden keys** in a garden hedge maze and escape through the exit. A friendly heartbeat thumps faster when the Minotaur is near. Needs just 2 players.
+- **4 maps** (or Random): Toy Workshop, Medieval Castle, Sakura Palace and Jurassic Manor. Each has its own layout, rooms, props, quests and escape goal.
+- **AI players**: the host can press **+AI / -AI** in the lobby to fill seats. AI Shapes do quests, report, fix sabotage and accuse who they saw; AI Hexagoners stalk and hex when nobody is watching; AI Minotaurs hunt and AI runners grab keys.
+- **Customise**: 17 shapes, 18 colours, patterns, 10 hairstyles fitted to your shape, 9 hats, 8 eye styles (including Anime) and 7 extras (including a Cane), with their own colour.
+
 ---
 
 ## Put it online with GitHub Pages (free)
