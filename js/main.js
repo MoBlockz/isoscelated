@@ -4,7 +4,7 @@
   const P = G.P;
   Game.screen = 'menu';
   let t = 0, last = performance.now();
-  const MUSIC_MODES = [['auto', 'Auto'], ['jazz', 'Smooth Jazz only'], ['treachery', 'Treachery Jazz only'], ['showdown', 'Golden Showdown only'], ['off', 'Off']];
+  const MUSIC_MODES = [['auto', 'Auto'], ['jazz', 'Smooth Jazz only'], ['treachery', 'Treachery Jazz only'], ['showdown', 'Golden Showdown only'], ['maze_horror', 'Maze Horror only'], ['maze_chase', 'Escape Pulse only'], ['off', 'Off']];
   const cyc = (v, n, d) => (v + d + n) % n;
 
   function needName(then) {
@@ -121,7 +121,7 @@
   // ---------- SETTINGS (shared with pause) ----------
   function settingsRows(x, y, w, dark) {
     const pr = UI.prof; const mi = MUSIC_MODES.findIndex(m => m[0] === pr.music);
-    UI.valueRow(x, y, w, 'Music', MUSIC_MODES[Math.max(0, mi)][1], d => { pr.music = MUSIC_MODES[cyc(Math.max(0, mi), 5, d)][0]; UI.save(); }, { dark }); y += 15;
+    UI.valueRow(x, y, w, 'Music', MUSIC_MODES[Math.max(0, mi)][1], d => { pr.music = MUSIC_MODES[cyc(Math.max(0, mi), MUSIC_MODES.length, d)][0]; UI.save(); }, { dark }); y += 15;
     UI.valueRow(x, y, w, 'Music vol', Math.round(pr.musicVol * 10) + '/10', d => { pr.musicVol = Math.max(0, Math.min(1, Math.round(pr.musicVol * 10 + d) / 10)); Snd.setMusicVolume(pr.musicVol); UI.save(); }, { dark }); y += 15;
     UI.valueRow(x, y, w, 'Sound FX', Math.round(pr.sfxVol * 10) + '/10', d => { pr.sfxVol = Math.max(0, Math.min(1, Math.round(pr.sfxVol * 10 + d) / 10)); Snd.setSfxVolume(pr.sfxVol); Snd.sfx('vote'); UI.save(); }, { dark }); y += 15;
     return y;

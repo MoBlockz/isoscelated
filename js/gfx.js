@@ -49,11 +49,11 @@ const G = {};
     ['Sky', '#6ec3f0'], ['Blue', '#4471d9'], ['Navy', '#2c3f8f'], ['Purple', '#8b55c9'], ['Pink', '#f08bbf'], ['Rose', '#c94f7c'],
     ['Brown', '#8a5a3b'], ['Tan', '#d8a86c'], ['White', '#f2eee8'], ['Grey', '#8f8a99'], ['Black', '#3a3346'], ['Gold', '#f4b93c']];
   G.HAIR_COLORS = [['Black', '#2a2433'], ['Brown', '#6b4130'], ['Blond', '#f2d06b'], ['Ginger', '#d8612f'], ['White', '#eeeeee'], ['Blue', '#4b7be6'], ['Pink', '#f07fb8'], ['Green', '#53b85d'], ['Purple', '#9358d6'], ['Red', '#d8333f']];
-  G.SHAPES = ['Isosceles Triangle', 'Square', 'Circle', 'Pyramid', 'Cylinder', 'Cone', 'Donut', 'Diamond', 'Star', 'Hexagon', 'Capsule', 'Pentagon', 'Octagon', 'Heart', 'Crescent Moon', 'Trapezoid', 'Plus'];
+  G.SHAPES = ['Isosceles Triangle', 'Square', 'Circle', 'Pyramid', 'Cylinder', 'Cone', 'Donut', 'Diamond', 'Star', 'Hexagon', 'Capsule', 'Pentagon', 'Octagon', 'Heart', 'Crescent Moon', 'Trapezoid', 'Plus', 'Kite', 'Shield'];
   G.PATTERNS = ['Solid', 'Stripes', 'Polka dots', 'Checker'];
   G.HAIRS = ['Elvis pompadour', 'Mohawk', 'Afro', 'Spiky anime', 'Pigtails', 'Mullet', 'Curly mop', 'Man-bun', 'Bald', 'Long flowing'];
   G.HATS = ['None', 'Crown', 'Top hat', 'Cowboy hat', 'Beanie', 'Chef hat', 'Propeller cap', 'Party hat', 'Viking helmet'];
-  G.EYES = ['Normal', 'Sleepy', 'Angry brows', 'Sparkly', 'Sunglasses', 'Monocle', 'Cyclops', 'Anime'];
+  G.EYES = ['Normal', 'Sleepy', 'Angry brows', 'Sparkly', 'Sunglasses', 'Monocle', 'Cyclops', 'Anime', 'Robot', 'Glowing'];
   G.EXTRAS = ['None', 'Mustache', 'Bow tie', 'Cape', 'Scarf', 'Backpack', 'Gold chain', 'Cane'];
   G.OBJECTS = ['teapot', 'lamp', 'rubber duck', 'traffic cone', 'toaster', 'chair', 'alarm clock', 'potted plant', 'boot', 'trophy'];
 
@@ -212,8 +212,9 @@ const G = {};
     (u, v) => v >= 2 && v <= 13 && Math.abs(u + .5 - 7) <= 3.6 + (v - 2) * 0.3, // trapezoid
     (u, v) => { const dx = Math.abs(u + .5 - 7), dy = Math.abs(v + .5 - 7); return (dx <= 2.8 && dy <= 7) || (dy <= 2.8 && dx <= 7); }, // plus
   ];
-  const EYE_Y = [9, 5, 6, 8, 6, 8, 4, 6, 7, 6, 5, 7, 6, 5, 6, 7, 6];
-  const EYE_DX = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, 0]; // crescent: face sits on the left
+  MASK.push((u,v) => Math.abs(u+.5-7) < (v < 5 ? v+1 : (14-v)*.65), (u,v) => v < 8 ? u > 1 && u < 12 : Math.abs(u+.5-7) < (14-v));
+  const EYE_Y = [9, 5, 6, 8, 6, 8, 4, 6, 7, 6, 5, 7, 6, 5, 6, 7, 6, 6, 6];
+  const EYE_DX = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, 0, 0, 0, 0]; // crescent: face sits on the left
   const masks = MASK.map(f => { const m = []; for (let v = 0; v < BW; v++) for (let u = 0; u < BW; u++) m.push(f(u, v)); return m; });
   G.masks = masks;
   // where the hair sits: the first row that is wide enough to be a "head", and how wide it is there
@@ -297,6 +298,7 @@ const G = {};
       return;
     }
     for (const cx of eyes) {
+      if (e >= 8) { R(cx-1,ey-1,4,4,e === 8 ? P.ink : P.dblue); R(cx,ey,2,2,e === 8 ? P.lime : P.sky); continue; }
       if (e === 1) { R(cx, ey + 1, 2, 1, P.ink); R(cx, ey + 2, 2, 1, '#fff'); continue; }
       R(cx, ey, 2, 3, '#fff'); R(cx + (side ? (s > 0 ? 1 : 0) : 0), ey + 1, 1, 2, P.ink);
       if (e === 3) { R(cx + 1, ey, 1, 1, P.yellow); R(cx - 1, ey - 1, 1, 1, P.yellow); }

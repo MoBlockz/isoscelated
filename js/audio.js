@@ -717,6 +717,8 @@
     }
   }
 
+  DEFS.maze_horror = Object.assign({}, DEFS.treachery, { id: 'maze_horror', name: 'Labyrinth of Dread', style: 'horror', bpm: 58, render: function(tr, bi, t0) { var beat = 60 / 58; iChoir(tr, t0, [36, 37, 43], beat * 4, 'ah', .09, .12, .4); dTom(tr, t0, 48, .22); if (bi % 2) iLead(tr, t0 + beat * 2, 78 + bi % 3, beat, .07, BRASS); } });
+  DEFS.maze_chase = Object.assign({}, DEFS.showdown, { id: 'maze_chase', name: 'Escape Pulse', style: 'chase', bpm: 174, render: function(tr, bi, t0) { var beat = 60 / 174; for(var i=0;i<8;i++) { var t=t0+i*beat/2; iBass(tr,t,[36,36,39,42,36,43,42,37][i],beat*.35,.25,750); dHat(tr,t,.025); if(i%2===0)dKick(tr,t,.3); if(i===2||i===6)dSnare(tr,t,.16); if(bi%2)iLead(tr,t,72+[0,3,6,1][i%4],beat*.25,.06,BRASS); } } });
   /* ------------------------------------------------------------ sources & crossfade */
   var sources = [];
   var activeKey = null;
@@ -1033,7 +1035,7 @@
   /* ------------------------------------------------------------ public API */
   var Snd = {
     current: null,
-    TRACKS: ['jazz_lobby', 'jazz_workshop', 'jazz_custom', 'treachery', 'showdown'].map(function (id) {
+    TRACKS: ['jazz_lobby', 'jazz_workshop', 'jazz_custom', 'treachery', 'showdown', 'maze_horror', 'maze_chase'].map(function (id) {
       return { id: id, name: DEFS[id].name, style: DEFS[id].style };
     }),
     init: function () {

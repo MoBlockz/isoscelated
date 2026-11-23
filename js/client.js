@@ -1003,9 +1003,10 @@ const Game = {};
       if (C.over) style = C.over.winner === 'shapes' ? 'showdown' : 'treachery';
       else if (C.reveal) { style = C.reveal.role === 'hex' ? 'treachery' : 'jazz'; jz = 'jazz_workshop'; }
       else if (ph === 'meeting') style = 'treachery';
-      else if (ph === 'play' && C.gmode === 'maze') style = C.snap && C.snap.mz && C.snap.mz.open ? 'showdown' : 'treachery';
+      else if (ph === 'play' && C.gmode === 'maze') style = C.snap && C.snap.mz && C.snap.mz.open ? 'maze_chase' : 'maze_horror';
       else if (ph === 'play') { jz = 'jazz_workshop'; if ((C.snap && C.snap.sab && C.snap.sab.k === 'melt') || (C.snap && C.snap.sd)) style = 'showdown'; }
     }
+    if (mode === 'maze_horror' || mode === 'maze_chase') return mode;
     if (mode === 'jazz') return jz; if (mode === 'treachery') return 'treachery'; if (mode === 'showdown') return 'showdown';
     return style === 'jazz' ? jz : style;
   };

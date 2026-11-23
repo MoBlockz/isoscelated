@@ -7,7 +7,7 @@ const Server = {};
   const T = World.T;
   const DEF = {
     hexCount: 1, types: 'random', allowed: { classic: true, shift: true, plant: true }, hexCd: 30, plantCd: 30, markFade: 60, shiftDur: 20, shiftCd: 30,
-    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 5, reveal: 'hex', chat: 'quick', squareff: 1, map: 'workshop', mode: 'hex'
+    discuss: 45, vote: 60, bells: 1, matchTime: 10, speed: 1, tasks: 8, reveal: 'hex', chat: 'quick', squareff: 1, map: 'workshop', mode: 'hex'
   };
   Server.DEF = DEF;
   // Fair Fisher-Yates shuffle with crypto randomness: every player has exactly the same chance.
@@ -332,7 +332,7 @@ const Server = {};
     }
     if (a === 'bell') {
       if (p.bells <= 0 || st.bellCd > 0) return; if (p.role === 'hex' && st.sab.k === 'melt') return;
-      const [s, d] = stationNear(p, 'bell'); if (!s || d > 44) return; p.bells--; startMeeting(p, 'bell', null); return;
+      const [s, d] = stationNear(p, 'bell'); if (!s || d > 44) return; p.bells--; st.bellCd = 180; startMeeting(p, 'bell', null); return;
     }
     // ---- Hexagoner powers ----
     if (p.role !== 'hex') return;
@@ -432,7 +432,7 @@ const Server = {};
   function endMeeting() {
     st.phase = 'play'; st.meeting = null; const S = st.settings;
     for (const p of st.players.values()) { p.hexCd = hexCdFor(p); p.plantCd = S.plantCd; p.shiftCd = S.shiftCd; p.vote = null; }
-    st.sabCd = 40; st.bellCd = 10; st.rosterDirty = true;
+    st.sabCd = 40; st.rosterDirty = true;
     sendAll({ t: 'e', k: 'resume' });
     checkWin();
   }
@@ -641,13 +641,14 @@ const Server = {};
   function tick(dt, catchingUp) {
     if (!st) return; st.t += dt; st.tick++;
     const S = st.settings;
+    if (st.phase !== "lobby") st.bellCd = Math.max(0, (st.bellCd || 0) - dt);
     for (const p of st.players.values()) if (p.bot) { if (st.mode === 'maze' && st.phase !== 'lobby') mazeAi(p, dt); else if (p.ai && !st.practice && st.phase !== 'lobby') aiTick(p, dt); else botTick(p, dt); }
     for (const k in st.rattle) { st.rattle[k] -= dt; if (st.rattle[k] <= 0) delete st.rattle[k]; }
     if (st.phase === 'reveal') { st.phaseT -= dt; if (st.phaseT <= 0) { st.phase = 'play'; st.rosterDirty = true; } }
     else if (st.phase === 'play' && st.mode === 'maze') { mazeTick(dt); if (!st || st.phase !== 'play') return; }
     else if (st.phase === 'play') {
       if (S.matchTime && !st.practice) { st.matchT -= dt; if (st.matchT <= 0) { gameOver('hex', 'The blimp never launched!'); return; } }
-      st.bellCd = Math.max(0, st.bellCd - dt);
+
       if (!st.sab.k) st.sabCd = Math.max(0, st.sabCd - dt);
       for (const p of st.players.values()) {
         if (!p.alive || p.role !== 'hex') continue;

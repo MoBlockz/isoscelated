@@ -9,7 +9,7 @@ const World = {};
   World.TASKS = {
     pipes: 'Connect pipes', gears: 'Match gears', code: 'Blueprint code', yarn: 'Untangle yarn', sort: 'Sort blocks',
     cupcake: 'Frost cupcake', compass: 'Aim compass', windbox: 'Wind music box', keycard: 'Swipe keycard', rings: 'Stack rings',
-    matchtoys: 'Match 3 toys', gauge: 'Fill boiler', candy: 'Refill candy'
+    matchtoys: 'Match 3 toys', gauge: 'Fill boiler', candy: 'Refill candy', memory: 'Memory relay', sequence: 'Number circuit'
   };
   World.TASK_KEYS = Object.keys(World.TASKS);
   // ---------- QUICK CHAT: the only way to talk (no typing = nothing mean can be typed) ----------
@@ -331,6 +331,7 @@ const World = {};
     if (th.names) th.names.forEach((n, i) => { m.rooms[i].name = n; }); // shape-pun room names
     for (const p of m.props) { if (p.k === 'blimp') p.k = th.centre; else if (th.props[p.k]) p.k = th.props[p.k]; }
     m.cams.forEach((c, i) => c.name = th.cams[i] || c.name);
+    ['memory','sequence'].forEach((task,i) => { const base=m.stations.find(s=>s.task===(i?'code':'windbox')); m.stations.push(Object.assign({},base,{task,x:base.x+12})); });
     return m;
   };
 

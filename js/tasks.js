@@ -67,12 +67,12 @@ const Tasks = {};
     },
     code: {
       title: 'Type the blueprint code!',
-      init(s) { s.code = String(1000 + rnd(9000)); s.in = ''; },
+      init(s) { s.code = String(100000 + rnd(900000)); s.in = ''; },
       draw(s, x, y, w, h) {
         G.rect(x + 10, y + 22, 70, 40, '#2f5da8'); G.text('CODE', x + 18, y + 28, P.white); G.text(s.code, x + 18, y + 44, P.yellow);
-        G.box(x + 10, y + 70, 70, 20, P.white); G.text(s.in.padEnd(4, '_'), x + 24, y + 77, P.ink);
+        G.box(x + 10, y + 70, 70, 20, P.white); G.text(s.in.padEnd(6, '_'), x + 24, y + 77, P.ink);
         const kx = x + w - 104; const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', 'OK'];
-        const press = k => { if (k === 'C') s.in = ''; else if (k === 'OK') { if (s.in === s.code) s.ok = true; else { s.in = ''; Snd.sfx('error'); msg(s, 'Wrong code!'); } } else if (s.in.length < 4) { s.in += k; Snd.sfx('blip'); } };
+        const press = k => { if (k === 'C') s.in = ''; else if (k === 'OK') { if (s.in === s.code) s.ok = true; else { s.in = ''; Snd.sfx('error'); msg(s, 'Wrong code!'); } } else if (s.in.length < 6) { s.in += k; Snd.sfx('blip'); } };
         keys.forEach((k, i) => { const bx = kx + (i % 3) * 32, by = y + 20 + Math.floor(i / 3) * 24; UI.button(bx, by, 28, 20, k, () => press(k), { nav: false, silent: true }); });
         for (let d = 0; d <= 9; d++) if (UI.hit('key:' + d)) press(String(d));
         if (UI.hit('key:Enter')) press('OK'); if (UI.hit('key:Backspace')) s.in = s.in.slice(0, -1);
@@ -125,8 +125,8 @@ const Tasks = {};
         if (UI.held('left')) s.a -= dt * 2; if (UI.held('right')) s.a += dt * 2;
         thick(cx, cy, cx + Math.cos(s.a) * (r - 8), cy + Math.sin(s.a) * (r - 8), P.red, 3); circle(cx, cy, 3, P.ink);
         let d = Math.abs(((s.a - s.target) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
-        if (d < 0.14) { s.hold += dt; G.rect(cx - 30, cy + r + 6, 60 * Math.min(1, s.hold / 0.8), 4, P.green); } else s.hold = 0;
-        return s.hold >= 0.8;
+        if (d < 0.09) { s.hold += dt; G.rect(cx - 30, cy + r + 6, 60 * Math.min(1, s.hold / 1.6), 4, P.green); } else s.hold = 0;
+        return s.hold >= 1.6;
       }
     },
     windbox: {
@@ -211,6 +211,22 @@ const Tasks = {};
         return s.j.every(v => v >= 5);
       }
     }
+  };
+  GAMES.memory = {
+    title: 'Memorize the lights, then repeat!',
+    init(s) { s.seq = Array.from({length: 6}, () => rnd(4)); s.t = 0; s.n = 0; },
+    draw(s,x,y,w,h,dt) { s.t += dt; const showing = s.t < 5.4;
+      G.text(showing ? 'WATCH' : 'REPEAT ' + s.n + '/6', x+8,y+12,P.ink);
+      for(let i=0;i<4;i++) { const bx=x+20+(i%2)*70, by=y+35+Math.floor(i/2)*35;
+        const lit=showing && Math.floor(s.t/.9)<6 && s.t%.9<.6 && s.seq[Math.floor(s.t/.9)]===i;
+        UI.button(bx,by,60,28,String(i+1),()=>{ if(showing)return; if(i===s.seq[s.n]) {s.n++; Snd.sfx('blip');} else {s.n=0;s.t=0;Snd.sfx('error');} },{nav:false,col:lit?P.yellow:P.grey});
+      } return s.n===6;
+    }
+  };
+  GAMES.sequence = {
+    title: 'Activate numbers in ascending order!',
+    init(s) { s.cells=shuffle(Array.from({length:12},(_,i)=>i+1)); s.n=1; },
+    draw(s,x,y,w,h) { s.cells.forEach((v,i)=> { const bx=x+10+(i%4)*50,by=y+24+Math.floor(i/4)*31; UI.button(bx,by,44,26,v<s.n?'OK':String(v),()=>{if(v<s.n)return; if(v===s.n){s.n++;Snd.sfx('blip');}else{s.n=1;Snd.sfx('error');}},{nav:false,col:v<s.n?P.lime:P.white}); }); return s.n===13; }
   };
   Tasks.GAMES = GAMES;
   // instructions that fit any map (used when the map gives the chore its own quest name)
