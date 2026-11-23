@@ -189,7 +189,7 @@ const Server = {};
       p.hexCd = 15; p.plantCd = 15; p.shiftCd = 15; p.shiftT = 0; p.shiftAs = null; p.bells = S.bells; p.rattled = false; p.vote = null; p.camOn = false; p.hold = -1;
       p.suspect = null; p.sawAt = 0; p.goal = null; p.aiBtn = null; p.aiSaid = 0;
       p.stats = z(); p.muteMatch = p.strikes >= 6 ? p.muteMatch : false; p.ready = false;
-      const keys = shuffle(World.TASK_KEYS).slice(0, Math.min(S.tasks, World.TASK_KEYS.length));
+      const keys = shuffle(st.map.taskKeys || World.TASK_KEYS).slice(0, S.tasks);
       p.tasks = keys.map(k => ({ k, done: false }));
       const seat = st.map.seats[i % 20]; teleport(p, seat[0], seat[1]);
     });

@@ -12,6 +12,12 @@ const World = {};
     matchtoys: 'Match 3 toys', gauge: 'Fill boiler', candy: 'Refill candy', memory: 'Memory relay', sequence: 'Number circuit'
   };
   World.TASK_KEYS = Object.keys(World.TASKS);
+  World.MAP_CHORES = {
+    castle: ['Raise the portcullis','Balance the drawbridge','Lift the dungeon gate','Light the watch fires','Light the royal hearth','Light the forge','Decode the rune seal','Decode the tower seal','Decode the crypt seal','Launch the catapult','Defend the battlements','Test the siege engine'],
+    palace: ['Brew jasmine tea','Brew royal tea','Brew green tea','Rake the zen garden','Rake the koi garden','Rake the courtyard','Fold the crane','Fold the lotus','Fold the dragon','Play the koto','Play the bamboo flute','Play the temple chimes'],
+    jurassic: ['Excavate a fossil','Excavate a skull','Excavate a claw','Incubate a raptor egg','Incubate a triceratops egg','Incubate a sauropod egg','Identify the raptor trail','Identify the rex trail','Identify the stegosaur trail','Scan the jungle','Scan the nesting grounds','Scan the volcanic ridge']
+  };
+  for (const [map,names] of Object.entries(World.MAP_CHORES)) names.forEach((name,i)=>World.TASKS[map+'_'+i]=name);
   // ---------- QUICK CHAT: the only way to talk (no typing = nothing mean can be typed) ----------
   // c: tab. {N} = a player's name the sender picks (only real players in the lobby can be chosen).
   World.QUICK = [
@@ -38,6 +44,7 @@ const World = {};
     // pixel emotes
     { c: 'emote', e: 'thumbs' }, { c: 'emote', e: 'question' }, { c: 'emote', e: 'heart' }, { c: 'emote', e: 'laugh' }, { c: 'emote', e: 'shocked' },
   ];
+  World.QUICK.push({c:'question',t:'Why did {N} ring the bell?'}, {c:'question',t:'Why did you do that?'}, {c:'question',t:'Why?'}, {c:'question',t:'What?'}, {c:'question',t:'What did you see?'}, {c:'question',t:'Where was {N}?'});
   World.quickText = (q, name) => { const e = World.QUICK[q]; if (!e) return ''; return e.e ? '' : e.t.replace('{N}', name || '???'); };
 
   function makeMap(w, h) { return { w, h, tiles: new Uint8Array(w * h), room: new Int8Array(w * h).fill(-1), solid: new Uint16Array(w * h), rooms: [], props: [], stations: [], doors: {}, chutes: [], cams: [], seats: [] }; }
@@ -332,6 +339,12 @@ const World = {};
     for (const p of m.props) { if (p.k === 'blimp') p.k = th.centre; else if (th.props[p.k]) p.k = th.props[p.k]; }
     m.cams.forEach((c, i) => c.name = th.cams[i] || c.name);
     ['memory','sequence'].forEach((task,i) => { const base=m.stations.find(s=>s.task===(i?'code':'windbox')); m.stations.push(Object.assign({},base,{task,x:base.x+12})); });
+    if (World.MAP_CHORES[T2]) {
+      const names=World.MAP_CHORES[T2]; let n=0;
+      m.stations=m.stations.filter(s=>{ if(s.kind!=='task')return true; if(n>=names.length)return false; s.task=T2+'_'+n++; return true; });
+      m.quests=null;
+    }
+    m.taskKeys=m.stations.filter(s=>s.kind==='task').map(s=>s.task);
     return m;
   };
 
@@ -483,13 +496,29 @@ const World = {};
       case 'candymachine': R(x, o + 4, 0, 24, 18, P.pink); R(x, o + 7, 2, 18, 12, P.light); for (let i = 0; i < 9; i++) R(x, o + 8 + (i % 3) * 6, 3 + Math.floor(i / 3) * 4, 3, 3, [P.red, P.yellow, P.sky, P.lime][i % 4]); R(x, o + 8, 18, 16, 12, G.shade(P.pink, .8)); R(x, o + 14, 22, 4, 4, P.dark); break;
       case 'counter': R(x, o, 2, W, 12, P.white); R(x, o, 2, W, 3, P.pink); for (let i = 4; i < W; i += 14) { R(x, o + i, 6, 8, 6, P.cream); R(x, o + i + 1, 4, 6, 3, P.pink); } break;
       case 'blimp': {
-        x.fillStyle = P.ink; x.beginPath(); x.ellipse(o + W / 2, 22, W / 2 - 4, 19, 0, 0, 7); x.fill();
-        x.fillStyle = '#e8c56a'; x.beginPath(); x.ellipse(o + W / 2, 21, W / 2 - 6, 17, 0, 0, 7); x.fill();
-        x.fillStyle = '#f4dc94'; x.beginPath(); x.ellipse(o + W / 2 - 10, 15, W / 2 - 30, 8, 0, 0, 7); x.fill();
-        for (let i = 1; i < 6; i++) R(x, o + 8 + i * (W - 16) / 6, 6, 1, 32, '#c9a24a');
-        R(x, o + W / 2 - 30, 38, 60, 12, P.brown); R(x, o + W / 2 - 28, 40, 56, 6, P.dbrown); for (let i = 0; i < 6; i++) R(x, o + W / 2 - 26 + i * 9, 41, 5, 4, P.sky);
-        R(x, o + W - 18, 10, 12, 24, P.red); R(x, o + 8, 20, 6, 4, P.dark); // fin + cannon
-        G.ctx; break;
+        // Pixel-built airship: shaped hull panels, brass seams, fins and gondola.
+        const cx=o+W*.49, rx=W*.43;
+        for(let yy=4;yy<37;yy++) {
+          const v=(yy-20)/17, span=Math.floor(rx*Math.sqrt(Math.max(0,1-v*v)));
+          for(let xx=-span;xx<=span;xx++) {
+            const edge=Math.abs(xx)>span-2||yy===4||yy===36;
+            const panel=Math.floor((xx+rx)/(rx*2)*9);
+            const color=edge?'#172d3a':yy<11?'#c9ead7':yy<18?(panel%2?'#e7dfb0':'#b9dcca'):yy<27?(panel%2?'#4c9d98':'#317d83'):yy<33?'#205461':'#173e4d';
+            R(x,cx+xx,yy,1,1,color);
+          }
+        }
+        for(let i=1;i<9;i++){const xx=cx-rx+i*rx*2/9;const ext=17*Math.sqrt(1-((xx-cx)/rx)**2);R(x,xx,20-ext+2,1,ext*2-4,'#c9b273');R(x,xx+1,20-ext+3,1,ext*2-6,'#7c8866');}
+        R(x,cx-rx+25,10,65,2,'#f8f0c8');R(x,cx-rx+32,13,38,1,'#f8f0c8');
+        // Tail surfaces have a cream leading edge and red fabric inset.
+        for(let j=0;j<13;j++){R(x,o+W-34+j,5+j,15,1,'#172d3a');R(x,o+W-32+j,7+j,10,1,'#ce7061');}
+        R(x,o+W-37,22,30,4,'#172d3a');R(x,o+W-33,23,25,2,'#dfb57e');
+        for(const dx of [-26,25]){R(x,cx+dx,33,2,8,'#b99c62');R(x,cx+dx+1,34,1,6,'#f2dc9f');}
+        R(x,cx-36,40,73,11,'#172d3a');R(x,cx-33,40,67,3,'#d7bd7d');R(x,cx-30,43,61,6,'#8c503d');
+        for(let i=0;i<6;i++){R(x,cx-26+i*9,43,6,5,'#173e4d');R(x,cx-25+i*9,43,4,3,'#91d4d7');R(x,cx-25+i*9,43,1,2,'#e6fbeb');}
+        R(x,cx-27,51,53,2,'#4d3430');
+        for(const dx of [-46,43]){R(x,cx+dx,36,9,7,'#172d3a');R(x,cx+dx+1,37,7,4,'#a78c58');R(x,cx+dx+9,34,2,11,'#e0d7bb');R(x,cx+dx+8,38,4,2,'#443e44');}
+        R(x,cx-8,20,16,10,'#173e4d');R(x,cx-6,22,12,6,'#dfcf91');R(x,cx-1,20,2,10,'#f6edc4');
+        break;
       }
       case 'compass': R(x, o + 2, 2, 12, 12, P.gold); R(x, o + 4, 4, 8, 8, P.white); R(x, o + 7, 5, 2, 3, P.red); R(x, o + 7, 8, 2, 3, P.blue); break;
       case 'table': x.fillStyle = P.ink; x.beginPath(); x.ellipse(o + W / 2, H / 2 + 2, W / 2, H / 2 - 2, 0, 0, 7); x.fill(); x.fillStyle = P.brown; x.beginPath(); x.ellipse(o + W / 2, H / 2, W / 2 - 1, H / 2 - 4, 0, 0, 7); x.fill(); x.fillStyle = P.tan; x.beginPath(); x.ellipse(o + W / 2, H / 2 - 2, W / 2 - 5, H / 2 - 8, 0, 0, 7); x.fill(); break;

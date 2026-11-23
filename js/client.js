@@ -86,8 +86,8 @@ const Game = {};
   }
   function setPhase(ph) {
     const old = C.phase; C.phase = ph;
-    if (ph === 'lobby') { C.map = World.buildLobby(); C.over = null; C.eject = null; C.meetFx = null; C.reveal = null; C.bodies = []; C.others.clear(); C.overlay = null; C.seenBodies.clear(); C.chatCh = 'all'; }
-    else if (old === 'lobby' && ph !== 'lobby') { C.map = World.buildMap(C.mapId); C.others.clear(); C.overlay = null; Tasks.close(); if (UI.askOpen()) UI.askClose(null); C.chat = C.chat.slice(-3); }
+    if (ph === 'lobby') { C.map = World.buildLobby(); C.over = null; C.eject = null; C.meetFx = null; C.reveal = null; C.bodies = []; C.others.clear(); C.overlay = null; C.seenBodies.clear(); C.chatCh = 'all'; C.chat = []; C.bubbles = {}; C.chatOpen = false; C.qWho = null; C.qTab = 'say'; }
+    else if (old === 'lobby' && ph !== 'lobby') { C.map = World.buildMap(C.mapId); C.others.clear(); C.overlay = null; Tasks.close(); if (UI.askOpen()) UI.askClose(null); C.chat = []; }
     if (ph === 'meeting') { Tasks.close(); C.overlay = null; C.holding = false; if (UI.askOpen()) UI.askClose(null); }
     if (ph === 'play' && old === 'meeting') { C.chatOpen = false; if (UI.askOpen()) UI.askClose(null); }
   }
@@ -159,7 +159,7 @@ const Game = {};
       case 'meeting': C.meetFx = { t: 0, t0: performance.now(), reason: e.reason, by: e.by, body: e.body, obj: e.obj, q: e.q }; C.meetCount++; Snd.sfx(e.reason === 'bell' ? 'bell' : 'report'); Snd.sfx('reveal'); Tasks.close(); C.overlay = null; C.card = null; C.chatCh = (C.mine.alive ? 'all' : 'spirit'); break;
       case 'eject': C.eject = { id: e.id, text: e.text, counts: e.counts, skips: e.skips, as: e.as, piece: e.piece, t: 0, t0: performance.now(), look: e.id ? lookOf(e.id) : null }; break;
       case 'resume': C.eject = null; C.meetFx = null; C.chatOpen = false; break;
-      case 'over': C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.mode === 'maze' ? ((e.winner === 'runners') === (C.myRole === 'runner') ? 'fanfare' : 'sad') : e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
+      case 'over': C.bubbles = {}; C.chat = []; C.chatOpen = false; C.over = Object.assign({ t: 0, t0: performance.now() }, e); C.eject = null; C.meetFx = null; Tasks.close(); C.overlay = null; Snd.sfx(e.mode === 'maze' ? ((e.winner === 'runners') === (C.myRole === 'runner') ? 'fanfare' : 'sad') : e.winner === 'shapes' ? (C.myRole === 'shape' ? 'fanfare' : 'sad') : (C.myRole === 'hex' ? 'fanfare' : 'sad')); break;
       case 'lobby': C.over = null; break;
       case 'chat': if (C.muted.has(e.from)) break; C.chat.push({ ch: e.ch, from: e.from, text: e.text, t: performance.now() }); if (C.chat.length > 60) C.chat.shift(); C.chatFlash = 6; Snd.sfx('chat'); break;
       case 'quick': {
@@ -894,12 +894,12 @@ const Game = {};
     if (o === 'pause') return Game.drawPause(panel(240, C.practice ? 250 : 150, C.practice ? 'PRACTICE MENU' : 'MENU'));
   }
   // ---------- QUICK CHAT panel ----------
-  const QTABS = [['say', 'SAY'], ['agree', 'AGREE'], ['deny', 'DISAGREE'], ['who', 'WHO?'], ['emote', ':)']];
+  const QTABS = [['say', 'SAY'], ['agree', 'AGREE'], ['deny', 'DISAGREE'], ['who', 'WHO?'], ['question', 'QUESTIONS'], ['emote', ':)']];
   function drawQuick(t) {
-    const b = panel(Math.min(G.W - 8, 400), Math.min(G.H - 4, 196), 'QUICK CHAT');
-    const tab = C.qTab || 'say'; let x = b.x + 8;
-    QTABS.forEach(([k, lbl]) => { const w = lbl.length * 8 + 10; UI.button(x, b.y + 20, w, 16, lbl, () => { C.qTab = k; }, { nav: false, col: tab === k ? (k === 'agree' ? P.lime : k === 'deny' ? P.pink : P.yellow) : P.light }); x += w + 4; });
-    const items = QUICK.map((e, i) => [e, i]).filter(([e]) => e.c === tab), top = b.y + 42;
+    const b = panel(Math.min(G.W - 8, 400), Math.min(G.H - 4, 220), 'QUICK CHAT');
+    const tab = C.qTab || 'say';
+    QTABS.forEach(([k, lbl],i) => { const w = (b.w - 22) / 3; UI.button(b.x + 8 + (i%3)*(w+3), b.y + 20 + Math.floor(i/3)*19, w, 16, lbl, () => { C.qTab = k; }, { nav: false, col: tab === k ? (k === 'agree' ? P.lime : k === 'deny' ? P.pink : P.yellow) : P.light }); });
+    const items = QUICK.map((e, i) => [e, i]).filter(([e]) => e.c === tab), top = b.y + 62;
     if (tab === 'emote') items.forEach(([e, i], k) => UI.button(b.x + 8 + k * 40, top, 34, 28, '', () => Game.quick(i), { icon: (bx, by) => G.ctx.drawImage(G.emote(e.e), bx + 9, by + 6, 16, 16) }));
     else {
       const two = tab === 'say' || tab === 'who', rows = two ? Math.ceil(items.length / 2) : items.length, rh = Math.min(two ? 19 : 26, Math.floor((b.y + b.h - top - (C.myRole === 'hex' ? 22 : 4)) / rows)), cw = two ? (b.w - 20) / 2 : b.w - 16;
@@ -907,7 +907,7 @@ const Game = {};
         const col = two ? k % 2 : 0, row = two ? k >> 1 : k, label = e.t.replace('{N}', '___'), maxc = Math.floor((cw - 8) / 8);
         const wl = G.wrap(label, maxc), fit = wl.length === 1 || (wl.length === 2 && rh >= 23);
         UI.button(b.x + 8 + col * (cw + 4), top + row * rh, cw, rh - 3, '', () => {
-          if (e.c === 'who') { C.qWho = i; C.whoFilter = ''; C.overlay = 'pickwho'; } else Game.quick(i);
+          if (e.t.includes('{N}')) { C.qWho = i; C.whoFilter = ''; C.overlay = 'pickwho'; } else Game.quick(i);
         }, { col: tab === 'agree' ? '#e6ffd6' : tab === 'deny' ? '#ffe3ee' : P.white, icon: (bx, by) => { const ls = fit ? wl : [label.slice(0, maxc - 1) + '.']; const ty = by + Math.max(4, Math.floor((rh - 3 - ls.length * 9) / 2) + 1); ls.forEach((l, n) => G.text(l, bx + cw / 2, ty + n * 9, P.ink, { al: 'c' })); } });
       });
     }

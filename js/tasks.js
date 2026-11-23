@@ -250,7 +250,7 @@ const Tasks = {};
     }
 
     const C = Game.C && Game.C(), qn = C && C.map && C.map.quests ? C.map.quests[cur.kind] : null;
-    const lines = G.wrap((qn ? qn.toUpperCase() + ': ' + GENERIC[cur.kind] : g.title), Math.floor((w - 36) / 8)); G.rect(x + 3, y + 3, w - 6, lines.length * 9 + 6, BAND[cur.kind] || P.blue); lines.forEach((l, i) => G.text(l, x + 8, y + 7 + i * 9, P.white, { ol: P.ink })); // each task type has its own colour band
+    const lines = G.wrap((qn ? qn.toUpperCase() + ': ' + GENERIC[cur.kind] : g.title), Math.floor((w - 36) / 8)); G.rect(x + 3, y + 3, w - 6, lines.length * 9 + 6, BAND[cur.kind] || (cur.kind.startsWith('castle_') ? '#66506d' : cur.kind.startsWith('palace_') ? '#a33c49' : cur.kind.startsWith('jurassic_') ? '#3a7353' : P.blue)); lines.forEach((l, i) => G.text(l, x + 8, y + 7 + i * 9, P.white, { ol: P.ink })); // each task type has its own colour band
     const top = y + lines.length * 9 + 2;
     cur.t += dt;
     let done = cur.doneT >= 0;
