@@ -410,15 +410,15 @@ const World = {};
   function hash(x, y) { let h = x * 374761393 + y * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967296; }
   // ---------- the space between rooms: a themed backdrop plus air ducts and vent grilles ----------
   const BACKDROPS = {
-    workshop: { base: '#141a33', dots: ['#2a3466', '#f6e7a8'], cloud: '#1f2850', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
-    castle: { base: '#1d1a22', brick: '#2a2630', mortar: '#151218', duct: '#6b5a48', ductD: '#43382c', ductL: '#8f7b63' },
-    palace: { base: '#14122a', dots: ['#3a2f5a', '#f2a6c8'], cloud: '#1f1a3a', duct: '#7a3b34', ductD: '#4d2420', ductL: '#a85a4c' },
-    jurassic: { base: '#0f1d12', leaf: ['#16301b', '#1d3d22', '#24502b'], duct: '#5a5a40', ductD: '#3a3a28', ductL: '#7e7e5c' },
-    lobby: { base: '#1a1420', brick: '#241c2a', mortar: '#120e16', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
-    maze: { base: '#10200f', leaf: ['#1a3a1b', '#214a23', '#2b5a2c'], duct: '#4a5a40', ductD: '#2e3a28', ductL: '#6e7e5c' },
+    workshop: { base: '#719dbb', dots: ['#91b6ca', '#f6e7a8'], cloud: '#c4dce3', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
+    castle: { base: '#678458', leaf: ['#789664', '#90a574', '#526f48'], duct: '#6b5a48', ductD: '#43382c', ductL: '#8f7b63' },
+    palace: { base: '#709da3', dots: ['#9ec4bd', '#f2a6c8'], cloud: '#a7c8c4', duct: '#7a3b34', ductD: '#4d2420', ductL: '#a85a4c' },
+    jurassic: { base: '#426b43', leaf: ['#5e8b50', '#7b9e60', '#315535'], duct: '#5a5a40', ductD: '#3a3a28', ductL: '#7e7e5c' },
+    lobby: { base: '#6c6175', brick: '#82758b', mortar: '#51465c', duct: '#5d6578', ductD: '#3a4050', ductL: '#8a93a8' },
+    maze: { base: '#42653d', leaf: ['#5e864d', '#6a9356', '#35552f'], duct: '#4a5a40', ductD: '#2e3a28', ductL: '#6e7e5c' },
   };
   function drawBackdrop(m, x) {
-    const B = BACKDROPS[m.theme || (m.kind === 'lobby' ? 'lobby' : 'workshop')] || BACKDROPS.workshop, W = m.w * T, H = m.h * T;
+    const B = BACKDROPS[m.theme || (m.kind === 'lobby' ? 'lobby' : m.kind === 'maze' ? 'maze' : 'workshop')] || BACKDROPS.workshop, W = m.w * T, H = m.h * T;
     x.fillStyle = B.base; x.fillRect(0, 0, W, H);
     if (B.brick) { for (let y = 0; y < H; y += 8) for (let i = 0; i < W; i += 16) { x.fillStyle = B.brick; x.fillRect(i + ((y / 8) % 2 ? 8 : 0), y, 15, 7); } }
     if (B.cloud) for (let i = 0; i < m.w * m.h / 40; i++) { const cx = hash(i, 7) * W, cy = hash(3, i) * H; x.fillStyle = B.cloud; x.fillRect(cx, cy, 40 + hash(i, i) * 40, 8); x.fillRect(cx + 10, cy - 5, 24, 6); }
@@ -436,6 +436,23 @@ const World = {};
     for (let ty = 1; ty < m.h - 1; ty += 6) { let run = 0; for (let tx = 0; tx <= m.w; tx++) { if (tx < m.w && empty(tx, ty)) { run++; continue; } if (run >= 5) { const sx = (tx - run) * T + 4, len = run * T - 8; duct(sx, ty * T + 4, true, len); for (let k = 24; k < len - 12; k += 56) grille(sx + k, ty * T + 3); } run = 0; } }
     for (let tx = 3; tx < m.w - 1; tx += 9) { let run = 0; for (let ty = 0; ty <= m.h; ty++) { if (ty < m.h && empty(tx, ty)) { run++; continue; } if (run >= 5) { const sy = (ty - run) * T + 4, len = run * T - 8; duct(tx * T + 4, sy, false, len); for (let k = 30; k < len - 12; k += 64) grille(tx * T + 3, sy + k); } run = 0; } }
   }
+  const exteriorTiles = {};
+  function exteriorTile(m) {
+    const theme=m.theme || (m.kind==='lobby'?'lobby':m.kind==='maze'?'maze':'workshop');
+    if (!exteriorTiles[theme]) { const [c,x]=G.mk(256,256); drawBackdrop({theme,w:16,h:16,tiles:new Uint8Array(256).fill(1)},x); exteriorTiles[theme]=c; }
+    return exteriorTiles[theme];
+  }
+  function drawOutside(m,camx,camy) {
+    const ctx=G.ctx;ctx.save();ctx.translate(-camx,-camy);ctx.fillStyle=ctx.createPattern(exteriorTile(m),'repeat');ctx.fillRect(camx,camy,G.W,G.H);ctx.restore();
+  }
+  World.drawExterior = function(m,camx,camy) {
+    const ctx=G.ctx;camx=Math.round(camx);camy=Math.round(camy);ctx.save();ctx.beginPath();
+    for(let ty=Math.floor(camy/T);ty<=Math.floor((camy+G.H)/T);ty++)for(let tx=Math.floor(camx/T);tx<=Math.floor((camx+G.W)/T);tx++) {
+      const outside=tx<0||ty<0||tx>=m.w||ty>=m.h;
+      if(outside || (!m.tiles[ty*m.w+tx]&&!nearFloor(m,tx,ty)))ctx.rect(tx*T-camx,ty*T-camy,T,T);
+    }
+    ctx.clip();drawOutside(m,camx,camy);ctx.restore();
+  };
   function nearFloor(m, tx, ty) { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x = tx + dx, y = ty + dy; if (x >= 0 && y >= 0 && x < m.w && y < m.h && m.tiles[y * m.w + x]) return true; } return false; }
   World.prerender = function (m) {
     const [c, x] = G.mk(m.w * T, m.h * T);
@@ -580,7 +597,7 @@ const World = {};
   World.draw = function (m, camx, camy, st) {
     const ctx = G.ctx; camx = Math.round(camx); camy = Math.round(camy);
     if (!m.bg) World.prerender(m);
-    ctx.fillStyle = '#100c18'; ctx.fillRect(0, 0, G.W, G.H);
+    drawOutside(m,camx,camy);
     ctx.drawImage(m.bg, camx, camy, G.W, G.H, 0, 0, G.W, G.H);
     // jammed doors
     if (st.jam != null && m.doors[st.jam]) for (const k of m.doors[st.jam]) {

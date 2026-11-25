@@ -164,7 +164,7 @@ const Game = {};
       case 'chat': if (C.muted.has(e.from)) break; C.chat.push({ ch: e.ch, from: e.from, text: e.text, t: performance.now() }); if (C.chat.length > 60) C.chat.shift(); C.chatFlash = 6; Snd.sfx('chat'); break;
       case 'quick': {
         if (C.muted.has(e.from)) break; C.bubbles[e.from] = { q: e.q, who: e.who, t: 4 };
-        const qe = QUICK[e.q]; C.chat.push({ ch: e.ch === 'all' ? 'quick' : e.ch, from: e.from, text: qe && qe.e ? '(' + qe.e + ')' : quickText(e.q, e.who), emote: qe && qe.e, t: performance.now() }); if (C.chat.length > 60) C.chat.shift();
+        const qe = QUICK[e.q]; C.chat.push({ ch: e.ch === 'all' ? 'quick' : e.ch, from: e.from, text: qe && qe.e ? '' : quickText(e.q, e.who), emote: qe && qe.e, t: performance.now() }); if (C.chat.length > 60) C.chat.shift();
         Snd.sfx('chat'); break;
       }
       case 'reportlog': UI.say('REPORT about ' + e.name + ' (from ' + e.by + '). Last messages: ' + (e.msgs.length ? e.msgs.map(s => '"' + s + '"').join(' ') : '(none)') + '  You can kick them from the player list.'); break;
@@ -383,7 +383,7 @@ const Game = {};
     for (const [id, o] of C.others) if (o.vis && C.bubbles[id]) drawBubble(id, o.x, o.y);
     if (C.bubbles[C.id]) drawBubble(C.id, me.x, me.y);
     // darkness
-    if (C.phase === 'play' && C.mine.alive) G.drawVision(me.x - camx, me.y - 10 - camy, C.vis);
+    if (C.phase === 'play' && C.mine.alive) { G.drawVision(me.x - camx, me.y - 10 - camy, C.vis); World.drawExterior(C.map, camx, camy); }
     G.drawAreaFlashes(camx, camy);
     if (iAmSpirit) { G.ctx.fillStyle = 'rgba(60,90,180,0.12)'; G.ctx.fillRect(0, 0, G.W, G.H); }
     // room name popup
@@ -458,12 +458,14 @@ const Game = {};
     const maxc = Math.floor((w - 22) / 8), lines = [];
     for (const m of C.chat) {
       const e = C.byId[m.from], nm = e ? e.name : '?', tag = m.ch === 'hex' ? '[HEX] ' : m.ch === 'spirit' ? '[SPIRIT] ' : '';
-      const wrapped = G.wrap(tag + nm + ': ' + m.text, maxc);
+      const wrapped = G.wrap(tag + nm + ': ' + (m.emote ? '' : m.text), maxc);
+      if (m.emote) { lines.push({ l: tag + nm + ':', first: true, m, nm, tag, look: e ? e.look : null }); lines.push({ l: '', first: false, icon: true, m, nm, tag }); continue; }
       wrapped.forEach((l, i) => lines.push({ l, first: i === 0, m, nm, tag, look: e ? e.look : null }));
     }
     const rows = Math.max(1, Math.floor((h - 8) / 10)), vis = lines.slice(-rows);
     vis.forEach((L, i) => {
       const yy = y + 5 + i * 10;
+      if (L.icon) { G.ctx.drawImage(G.emote(L.m.emote), x + 16, yy - 1, 10, 10); return; }
       if (L.first && L.look) { miniFace(L.look, x + 4, yy); }
       const col = L.m.ch === 'hex' ? P.dred : L.m.ch === 'spirit' ? P.dpurple : P.ink;
       if (L.first) { const pre = L.tag + L.nm + ':'; G.text(L.tag, x + 16, yy, col); G.text(L.nm + ':', x + 16 + L.tag.length * 8, yy, G.shade(G.BODY_COLORS[L.look ? L.look.color : 0][1], 0.75)); G.text(L.l.slice(pre.length), x + 16 + pre.length * 8, yy, col); }
