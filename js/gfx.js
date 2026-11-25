@@ -405,9 +405,16 @@ const G = {};
     ctx.fillStyle = P.cream; ctx.fillRect(sx - 13, hy + 3, 6, 2); ctx.fillRect(sx + 7, hy + 3, 6, 2); ctx.fillRect(sx - 15, hy - 2, 1, 5); ctx.fillRect(sx + 14, hy - 2, 1, 5);
     ctx.globalAlpha = 1;
   };
-  G.drawKey = function (sx, sy, t) { const y = Math.round(sy - 10 + Math.sin(t * 4) * 2), x = Math.round(sx); const R = (a, b, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x + a, y + b, w, h); };
-    R(-5, -4, 7, 7, P.ink); R(-4, -3, 5, 5, P.gold); R(-3, -2, 3, 3, P.ink); R(1, -1, 8, 3, P.ink); R(2, 0, 6, 1, P.gold); R(5, 1, 2, 3, P.ink); R(5, 1, 1, 2, P.gold); R(-3, -3, 1, 1, '#fff');
-    if (((t * 6) | 0) % 3 === 0) { ctx.fillStyle = '#fff'; ctx.fillRect(x + 8, y - 6, 1, 3); ctx.fillRect(x + 7, y - 5, 3, 1); } };
+  G.drawKeyIcon = function(sx,sy) {
+    const x=Math.round(sx),y=Math.round(sy),R=(a,b,w,h,c)=>G.rect(x+a,y+b,w,h,c);
+    R(-7,-4,8,8,P.ink);R(-6,-3,6,6,P.gold);R(-4,-1,2,2,P.ink);
+    R(0,-1,9,4,P.ink);R(0,0,8,2,P.gold);R(4,2,2,3,P.ink);R(7,2,2,3,P.ink);
+    R(4,2,1,2,P.gold);R(7,2,1,2,P.gold);R(-6,-3,3,1,P.yellow);
+  };
+  G.drawKey = function(sx,sy,t) {
+    const y=Math.round(sy-10+Math.sin(t*4)*2);G.drawKeyIcon(sx,y);
+    if(((t*6)|0)%3===0){G.rect(sx+10,y-6,1,3,'#fff');G.rect(sx+9,y-5,3,1,'#fff');}
+  };
   // draw character at world pos (feet) on ctx
   G.drawChar = function (look, dir, frame, sx, sy, alpha) {
     const c = G.charSprite(look, dir, frame);

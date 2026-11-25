@@ -377,7 +377,7 @@ const World = {};
     try {
       const sp = World.propSprite(p), w = sp.width, h = sp.height, d = sp.getContext('2d').getImageData(0, 0, w, h).data;
       const mk = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) mk[i] = d[i * 4 + 3] > 40 ? 1 : 0;
-      p.mask = { w, h, ox: p.x * T - 1, oy: p.y * T - (CENTRES.includes(p.k) ? 6 : 0), d: mk };
+      p.mask = { w, h, ox: p.x * T - 1, oy: p.y * T - (p.k === 'blimp' ? 96 : CENTRES.includes(p.k) ? 6 : 0), d: mk };
     } catch (e) { p.mask = null; } // no canvas (e.g. tests in Node): fall back to the whole tile being solid
     return p.mask;
   }
@@ -493,7 +493,7 @@ const World = {};
   function R(x, a, b, w, h, c) { x.fillStyle = c; x.fillRect(a, b, w, h); }
   function drawPropSprite(p) {
     const key = p.k + p.w + 'x' + p.h; if (propCache[key]) return propCache[key];
-    const W = p.w * T, H = p.h * T + (CENTRES.includes(p.k) ? 8 : 0); const [c, x] = G.mk(W + 2, H + 10);
+    const W = p.w * T, H = p.h * T + (CENTRES.includes(p.k) ? 8 : 0); const [c, x] = G.mk(W + 2, H + 10 + (p.k === 'blimp' ? 90 : 0));
     const o = 1; // offset for outline
     switch (p.k) {
       case 'paintcans': for (let i = 0; i < p.w * 2; i++) { const cc = [P.red, P.blue, P.yellow, P.green, P.purple, P.orange][i % 6]; R(x, o + 1 + i * 8, 6, 7, 9, P.grey); R(x, o + 1 + i * 8, 6, 7, 3, cc); R(x, o + 2 + i * 8, 9, 1, 5, P.light); } break;
@@ -513,29 +513,22 @@ const World = {};
       case 'candymachine': R(x, o + 4, 0, 24, 18, P.pink); R(x, o + 7, 2, 18, 12, P.light); for (let i = 0; i < 9; i++) R(x, o + 8 + (i % 3) * 6, 3 + Math.floor(i / 3) * 4, 3, 3, [P.red, P.yellow, P.sky, P.lime][i % 4]); R(x, o + 8, 18, 16, 12, G.shade(P.pink, .8)); R(x, o + 14, 22, 4, 4, P.dark); break;
       case 'counter': R(x, o, 2, W, 12, P.white); R(x, o, 2, W, 3, P.pink); for (let i = 4; i < W; i += 14) { R(x, o + i, 6, 8, 6, P.cream); R(x, o + i + 1, 4, 6, 3, P.pink); } break;
       case 'blimp': {
-        // Pixel-built airship: shaped hull panels, brass seams, fins and gondola.
-        const cx=o+W*.49, rx=W*.43;
-        for(let yy=4;yy<37;yy++) {
-          const v=(yy-20)/17, span=Math.floor(rx*Math.sqrt(Math.max(0,1-v*v)));
-          for(let xx=-span;xx<=span;xx++) {
-            const edge=Math.abs(xx)>span-2||yy===4||yy===36;
-            const panel=Math.floor((xx+rx)/(rx*2)*9);
-            const color=edge?'#172d3a':yy<11?'#c9ead7':yy<18?(panel%2?'#e7dfb0':'#b9dcca'):yy<27?(panel%2?'#4c9d98':'#317d83'):yy<33?'#205461':'#173e4d';
-            R(x,cx+xx,yy,1,1,color);
+        const cx=o+W/2;
+        for(let yy=3;yy<101;yy++){
+          const v=(yy-48)/48,span=Math.floor(47*Math.sqrt(Math.max(0,1-v*v))*(yy>60?1-(yy-60)*.006:1));
+          for(let xx=-span;xx<=span;xx++){
+            const edge=Math.abs(xx)>span-2||yy<5;
+            const stripe=Math.floor((xx+span)/(span*2+1)*7);
+            const cols=['#b7434c','#f4dca1','#318b93','#f4dca1','#318b93','#f4dca1','#b7434c'];
+            R(x,cx+xx,yy,1,1,edge?'#263246':G.shade(cols[stripe],yy>69?.72:xx<-span*.2?1.12:.95));
           }
         }
-        for(let i=1;i<9;i++){const xx=cx-rx+i*rx*2/9;const ext=17*Math.sqrt(1-((xx-cx)/rx)**2);R(x,xx,20-ext+2,1,ext*2-4,'#c9b273');R(x,xx+1,20-ext+3,1,ext*2-6,'#7c8866');}
-        R(x,cx-rx+25,10,65,2,'#f8f0c8');R(x,cx-rx+32,13,38,1,'#f8f0c8');
-        // Tail surfaces have a cream leading edge and red fabric inset.
-        for(let j=0;j<13;j++){R(x,o+W-34+j,5+j,15,1,'#172d3a');R(x,o+W-32+j,7+j,10,1,'#ce7061');}
-        R(x,o+W-37,22,30,4,'#172d3a');R(x,o+W-33,23,25,2,'#dfb57e');
-        for(const dx of [-26,25]){R(x,cx+dx,33,2,8,'#b99c62');R(x,cx+dx+1,34,1,6,'#f2dc9f');}
-        R(x,cx-36,40,73,11,'#172d3a');R(x,cx-33,40,67,3,'#d7bd7d');R(x,cx-30,43,61,6,'#8c503d');
-        for(let i=0;i<6;i++){R(x,cx-26+i*9,43,6,5,'#173e4d');R(x,cx-25+i*9,43,4,3,'#91d4d7');R(x,cx-25+i*9,43,1,2,'#e6fbeb');}
-        R(x,cx-27,51,53,2,'#4d3430');
-        for(const dx of [-46,43]){R(x,cx+dx,36,9,7,'#172d3a');R(x,cx+dx+1,37,7,4,'#a78c58');R(x,cx+dx+9,34,2,11,'#e0d7bb');R(x,cx+dx+8,38,4,2,'#443e44');}
-        R(x,cx-8,20,16,10,'#173e4d');R(x,cx-6,22,12,6,'#dfcf91');R(x,cx-1,20,2,10,'#f6edc4');
-        break;
+        R(x,cx-12,94,24,6,'#263246');R(x,cx-10,95,20,3,'#a54b43');
+        for(const dx of [-12,11]){R(x,cx+dx,99,2,23,'#553d32');R(x,cx+dx,100,1,20,'#e5c688');}
+        R(x,cx-4,100,8,13,'#f6b54f');R(x,cx-2,102,4,10,'#fff0a9');
+        R(x,cx-21,121,42,25,'#263246');R(x,cx-19,123,38,20,'#b5804c');R(x,cx-23,119,46,5,'#ecd29b');
+        for(let yy=127;yy<143;yy+=5)for(let xx=-17;xx<18;xx+=7)R(x,cx+xx+(yy%2?2:0),yy,5,2,'#805632');
+        R(x,cx-17,144,34,2,'#66452f');break;
       }
       case 'compass': R(x, o + 2, 2, 12, 12, P.gold); R(x, o + 4, 4, 8, 8, P.white); R(x, o + 7, 5, 2, 3, P.red); R(x, o + 7, 8, 2, 3, P.blue); break;
       case 'table': x.fillStyle = P.ink; x.beginPath(); x.ellipse(o + W / 2, H / 2 + 2, W / 2, H / 2 - 2, 0, 0, 7); x.fill(); x.fillStyle = P.brown; x.beginPath(); x.ellipse(o + W / 2, H / 2, W / 2 - 1, H / 2 - 4, 0, 0, 7); x.fill(); x.fillStyle = P.tan; x.beginPath(); x.ellipse(o + W / 2, H / 2 - 2, W / 2 - 5, H / 2 - 8, 0, 0, 7); x.fill(); break;

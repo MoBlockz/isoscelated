@@ -707,9 +707,10 @@ const Game = {};
     // sky
     ctx.fillStyle = '#7fc3ef'; ctx.fillRect(0, 0, G.W, G.H); ctx.fillStyle = '#a9dcf7'; ctx.fillRect(0, G.H * 0.6, G.W, G.H * 0.4);
     for (let i = 0; i < 6; i++) { const cx = ((i * 97 - tt * 30 * (1 + i % 3)) % (G.W + 80) + G.W + 80) % (G.W + 80) - 40, cy = 20 + (i * 53) % (G.H - 80); G.rect(cx, cy, 40, 8, '#fff'); G.rect(cx + 8, cy - 5, 22, 6, '#fff'); }
-    // blimp + cannon
-    const bx = 30, by = G.H / 2 - 30; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx + 50, by + 20, 62, 26, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx + 50, by + 19, 60, 24, 0, 0, 7); ctx.fill();
-    G.rect(bx + 20, by + 42, 60, 12, P.brown); G.rect(bx + 100, by + 10, 18, 10, P.dark); G.rect(bx + 112, by + 7, 6, 16, P.ink);
+    // Use the map balloon artwork in the ejection scene too.
+    const bx=30,by=G.H/2-30,balloon=World.propSprite({k:'blimp',w:14,h:3});
+    ctx.drawImage(balloon,bx+5,by-75,balloon.width*.7,balloon.height*.7);
+    G.rect(bx+100,by+10,18,10,P.dark);G.rect(bx+112,by+7,6,16,P.ink);
     if (E.id && E.look) {
       const ft = Math.min(tt, 1.3) + Math.max(0, Math.min(tt, 4.5) - 1.3) * 0.35, px = bx + 118 + ft * 90, py = by + 15 - ft * 40 + ft * ft * 14;
       if (tt < 0.4) { G.smoke(bx + 120 + camx, by + 15 + camy, '#fff', 3); }
@@ -770,7 +771,7 @@ const Game = {};
     if (sh) for (let i = 0; i < 40; i++) { const x = (i * 53 + Math.sin(t + i) * 20) % G.W, y = ((i * 31 + t * (20 + i % 5 * 10)) % G.H); G.rect(x, G.H - y, 2, 2, [P.yellow, P.pink, P.lime, P.sky][i % 4]); }
     const mz = O.mode === 'maze'; G.title(mz ? (O.winner === 'runners' ? 'SHAPES ESCAPED!' : 'MINOTAUR WINS!') : sh ? 'SHAPES WIN!' : 'HEXAGONERS WIN!', G.W / 2, 8, G.W > 380 ? 3 : 2, t);
     G.text(O.reason, G.W / 2, 40, P.white, { al: 'c' });
-    if (sh && O.t < 6 && O.reason.indexOf('blimp') >= 0) { const bx = -60 + O.t * 70; ctx.fillStyle = P.ink; ctx.beginPath(); ctx.ellipse(bx, 70, 32, 14, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#e8c56a'; ctx.beginPath(); ctx.ellipse(bx, 69, 30, 12, 0, 0, 7); ctx.fill(); }
+    if (sh && O.t < 6 && O.reason.indexOf('blimp') >= 0) { const balloon=World.propSprite({k:'blimp',w:14,h:3});ctx.drawImage(balloon,-110+O.t*70,12,balloon.width*.35,balloon.height*.35); }
     if (mz) { // Minotaur Maze keeps the simple list
       const cols = Math.max(1, Math.floor((G.W - 8) / 128)), cw = Math.floor((G.W - 8) / cols), chh = Math.min(26, Math.floor((G.H - 84) / Math.ceil(O.players.length / cols)));
       O.players.forEach((p, i) => {
@@ -966,7 +967,7 @@ const Game = {};
     const sab = C.snap && C.snap.sab;
     if (sab) for (const s of m.stations) { if ((sab.k === 'lights' && s.kind === 'switch' && !sab.sw[s.sw]) || (sab.k === 'melt' && s.kind === 'melt')) if (bl) G.text('!', x0 + s.x * f - 4, y0 + s.y * f - 8, P.red, { ol: P.ink }); }
     if (C.myRole === 'hex' && C.mine.alive) for (const c of m.chutes) G.rect(x0 + c.x * f - 2, y0 + c.y * f - 4, 4, 4, P.blue);
-    if (m.kind === 'maze' && C.snap && C.snap.mz) { for (const k of C.snap.mz.keys) if (!k[2]) G.rect(x0 + k[0] * f - 2, y0 + k[1] * f - 2, 5, 5, P.gold); G.rect(x0 + m.exit.x * f - 3, y0 + m.exit.y * f - 3, 7, 7, C.snap.mz.open ? P.lime : P.red); }
+    if (m.kind === 'maze' && C.snap && C.snap.mz) { for (const k of C.snap.mz.keys) if (!k[2]) G.drawKeyIcon(x0 + k[0] * f, y0 + k[1] * f); G.rect(x0 + m.exit.x * f - 3, y0 + m.exit.y * f - 3, 7, 7, C.snap.mz.open ? P.lime : P.red); }
     if (bl) { G.rect(x0 + C.me.x * f - 2, y0 + C.me.y * f - 3, 5, 5, P.ink); G.rect(x0 + C.me.x * f - 1, y0 + C.me.y * f - 2, 3, 3, P.red); }
     G.text('Tap or press M to close', G.W / 2, G.H - 10, P.grey, { al: 'c' });
     if (UI.hit('map') || UI.hit('back')) closeOverlay();
